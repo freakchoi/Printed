@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  projects     Project[]
+}
+
+model Template {
+  id        String     @id @default(cuid())
+  name      String
+  category  String
+  svgPath   String
+  fields    String     // JSON string: [{ id, label, defaultValue }]
+  thumbnail String?
+  parentId  String?    // 하위 분기: null이면 최상위, 값이 있으면 변형(variant)
+  parent    Template?  @relation("TemplateVariants", fields: [parentId], references: [id])
+  variants  Template[] @relation("TemplateVariants")
+  createdAt DateTime   @default(now())
+  projects  Project[]
+}
+
+model Project {
+  id         String   @id @default(cuid())
+  name       String
+  values     String   // JSON string: { "field-id": "value" }
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  userId     String
+  templateId String
+  user       User     @relation(fields: [userId], references: [id])
+  template   Template @relation(fields: [templateId], references: [id])
+}
