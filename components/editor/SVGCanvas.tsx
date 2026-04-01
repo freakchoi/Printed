@@ -1,5 +1,6 @@
 'use client'
 import { useRef, useState } from 'react'
+import DOMPurify from 'dompurify'
 import { applyValuesToSVG } from '@/lib/svg-parser'
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,7 +14,7 @@ export function SVGCanvas({ svgContent, values }: SVGCanvasProps) {
   const [zoom, setZoom] = useState(1)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const renderedSVG = applyValuesToSVG(svgContent, values)
+  const renderedSVG = DOMPurify.sanitize(applyValuesToSVG(svgContent, values), { USE_PROFILES: { svg: true } })
 
   return (
     <div className="flex-1 flex flex-col bg-muted/30">

@@ -17,13 +17,14 @@ interface TextPanelProps {
   values: Record<string, string>
   projectName: string
   isSaving: boolean
+  isExporting: boolean
   onFieldChange: (id: string, value: string) => void
   onSave: () => void
   onExport: (format: 'pdf' | 'png' | 'jpeg') => void
 }
 
 export function TextPanel({
-  fields, values, projectName, isSaving,
+  fields, values, projectName, isSaving, isExporting,
   onFieldChange, onSave, onExport,
 }: TextPanelProps) {
   return (
@@ -64,6 +65,7 @@ export function TextPanel({
           variant="outline"
           className="w-full"
           size="sm"
+          disabled={isExporting}
         >
           <Download size={14} className="mr-1" />
           PDF (CMYK, 인쇄용)
@@ -73,6 +75,7 @@ export function TextPanel({
           variant="outline"
           className="w-full"
           size="sm"
+          disabled={isExporting}
         >
           <Download size={14} className="mr-1" />
           PNG (RGB)
@@ -82,6 +85,7 @@ export function TextPanel({
           variant="outline"
           className="w-full"
           size="sm"
+          disabled={isExporting}
         >
           <Download size={14} className="mr-1" />
           JPG (RGB)

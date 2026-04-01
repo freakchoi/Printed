@@ -29,6 +29,7 @@ export default function EditorPage() {
   const [projectId, setProjectId] = useState<string | null>(null)
   const [projectName] = useState('새 프로젝트')
   const [isSaving, setIsSaving] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   useEffect(() => {
     fetch('/api/templates')
@@ -78,31 +79,37 @@ export default function EditorPage() {
   }
 
   const handleExport = async (format: 'pdf' | 'png' | 'jpeg') => {
-    let currentProjectId = projectId
-    if (!currentProjectId) {
-      if (!templateDetail) return
-      const res = await fetch('/api/projects', {
+    if (isExporting) return
+    setIsExporting(true)
+    try {
+      let currentProjectId = projectId
+      if (!currentProjectId) {
+        if (!templateDetail) return
+        const res = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: projectName, templateId: templateDetail.id, values }),
+        })
+        const project = await res.json()
+        currentProjectId = project.id
+        setProjectId(project.id)
+      }
+
+      const res = await fetch('/api/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: projectName, templateId: templateDetail.id, values }),
+        body: JSON.stringify({ projectId: currentProjectId, format }),
       })
-      const project = await res.json()
-      currentProjectId = project.id
-      setProjectId(project.id)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${projectName}.${format}`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setIsExporting(false)
     }
-
-    const res = await fetch('/api/export', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectId: currentProjectId, format }),
-    })
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${projectName}.${format}`
-    a.click()
-    URL.revokeObjectURL(url)
   }
 
   return (
@@ -130,6 +137,7 @@ export default function EditorPage() {
               values={values}
               projectName={projectName}
               isSaving={isSaving}
+              isExporting={isExporting}
               onFieldChange={handleFieldChange}
               onSave={handleSave}
               onExport={handleExport}
