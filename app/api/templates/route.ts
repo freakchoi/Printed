@@ -38,9 +38,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
   }
 
+  if (!file.name.endsWith('.svg') && file.type !== 'image/svg+xml') {
+    return NextResponse.json({ error: 'SVG 파일만 업로드 가능합니다' }, { status: 400 })
+  }
+
   const svgString = await file.text()
   const fields = parseSVGFields(svgString)
-  const filename = `${Date.now()}-${file.name}`
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const filename = `${Date.now()}-${safeName}`
   const uploadDir = path.join(process.cwd(), 'uploads')
   const svgDir = path.join(uploadDir, 'svg')
 
