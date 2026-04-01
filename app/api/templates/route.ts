@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const svgString = await file.text()
   const fields = parseSVGFields(svgString)
   const filename = `${Date.now()}-${file.name}`
-  const uploadDir = process.env.UPLOAD_DIR ?? path.join(process.cwd(), 'uploads')
+  const uploadDir = path.join(process.cwd(), 'uploads')
   const svgDir = path.join(uploadDir, 'svg')
 
   await mkdir(svgDir, { recursive: true })

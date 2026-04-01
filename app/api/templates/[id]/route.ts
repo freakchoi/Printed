@@ -34,6 +34,9 @@ export async function DELETE(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+  const template = await prisma.template.findUnique({ where: { id }, select: { id: true } })
+  if (!template) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
   await prisma.template.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }
