@@ -30,8 +30,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'SVG 파일을 찾을 수 없습니다' }, { status: 404 })
   }
 
-  const values: Record<string, string> = JSON.parse(project.values)
+  let values: Record<string, string>
+  try {
+    values = JSON.parse(project.values)
+  } catch {
+    return NextResponse.json({ error: '프로젝트 데이터 파싱 오류' }, { status: 422 })
+  }
+
   const finalSVG = buildExportSVG(svgContent, values)
+  const encodedName = encodeURIComponent(project.name)
 
   // PNG/JPG → RGB (화면/웹용)
   if (format === 'png' || format === 'jpeg') {
@@ -40,7 +47,7 @@ export async function POST(req: NextRequest) {
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': mime,
-        'Content-Disposition': `attachment; filename="${project.name}.${format}"`,
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodedName}.${format}`,
       },
     })
   }
@@ -50,7 +57,7 @@ export async function POST(req: NextRequest) {
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${project.name}.pdf"`,
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodedName}.pdf`,
     },
   })
 }

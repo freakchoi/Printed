@@ -47,16 +47,18 @@ export async function exportToPDF(svgString: string): Promise<Buffer> {
   }
 
   // Ghostscript: RGB PDF → CMYK PDF
-  await execAsync(
-    `gs -dSAFER -dBATCH -dNOPAUSE ` +
-    `-sDEVICE=pdfwrite ` +
-    `-sColorConversionStrategy=CMYK ` +
-    `-dProcessColorModel=/DeviceCMYK ` +
-    `-sOutputFile="${cmykPath}" "${rgbPath}"`
-  )
-
-  const buffer = await readFile(cmykPath)
-  await unlink(rgbPath).catch(() => {})
-  await unlink(cmykPath).catch(() => {})
-  return buffer
+  try {
+    await execAsync(
+      `gs -dSAFER -dBATCH -dNOPAUSE ` +
+      `-sDEVICE=pdfwrite ` +
+      `-sColorConversionStrategy=CMYK ` +
+      `-dProcessColorModel=/DeviceCMYK ` +
+      `-sOutputFile="${cmykPath}" "${rgbPath}"`
+    )
+    const buffer = await readFile(cmykPath)
+    return buffer
+  } finally {
+    await unlink(rgbPath).catch(() => {})
+    await unlink(cmykPath).catch(() => {})
+  }
 }
