@@ -1,0 +1,88 @@
+<h2>에디터 핵심 컴포넌트</h2>
+<p class="subtitle">3패널 구조 · 컴포넌트 책임 분리</p>
+
+<div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;">
+
+  <!-- LeftSidebar -->
+  <div style="flex:1;min-width:160px;background:#1e1e2e;border:1px solid #cba6f7;border-radius:8px;overflow:hidden;">
+    <div style="background:#cba6f7;color:#1e1e2e;padding:7px 12px;font-size:11px;font-weight:700;">LeftSidebar</div>
+    <div style="padding:10px;font-size:10px;color:#cdd6f4;line-height:1.7;">
+      <div style="color:#a6adc8;margin-bottom:6px;">역할</div>
+      <div>· 템플릿 아이콘 목록 표시</div>
+      <div>· 접기/펼치기 토글</div>
+      <div>· 카테고리별 그룹핑</div>
+      <div>· 템플릿 선택 → 에디터에 전달</div>
+      <div style="margin-top:8px;color:#a6adc8;">상태</div>
+      <div style="background:#181825;border-radius:4px;padding:5px 7px;margin-top:4px;font-family:monospace;color:#89b4fa;">selectedTemplateId</div>
+      <div style="background:#181825;border-radius:4px;padding:5px 7px;margin-top:3px;font-family:monospace;color:#89b4fa;">isCollapsed</div>
+    </div>
+  </div>
+
+  <!-- SVGCanvas -->
+  <div style="flex:1.4;min-width:180px;background:#1e1e2e;border:2px solid #f9e2af;border-radius:8px;overflow:hidden;">
+    <div style="background:#f9e2af;color:#1e1e2e;padding:7px 12px;font-size:11px;font-weight:700;">SVGCanvas ⭐ 핵심</div>
+    <div style="padding:10px;font-size:10px;color:#cdd6f4;line-height:1.7;">
+      <div style="color:#a6adc8;margin-bottom:6px;">역할</div>
+      <div>· SVG 파일 렌더링 (fabric.js)</div>
+      <div>· &lt;text&gt; 요소 실시간 반영</div>
+      <div>· 앞면/뒷면 탭 전환</div>
+      <div>· 줌 인/아웃</div>
+      <div style="margin-top:8px;color:#a6adc8;">핵심 로직</div>
+      <div style="background:#181825;border-radius:4px;padding:6px 7px;margin-top:4px;font-size:9px;font-family:monospace;color:#a6e3a1;line-height:1.8;">
+        parseSVGFields(svgString)<br>
+        → [&#123; id, label, value &#125;]<br><br>
+        updateSVGText(id, newValue)<br>
+        → SVG DOM 즉시 반영
+      </div>
+    </div>
+  </div>
+
+  <!-- TextPanel -->
+  <div style="flex:1;min-width:160px;background:#1e1e2e;border:1px solid #89b4fa;border-radius:8px;overflow:hidden;">
+    <div style="background:#89b4fa;color:#1e1e2e;padding:7px 12px;font-size:11px;font-weight:700;">TextPanel</div>
+    <div style="padding:10px;font-size:10px;color:#cdd6f4;line-height:1.7;">
+      <div style="color:#a6adc8;margin-bottom:6px;">역할</div>
+      <div>· fields 배열로 Input 자동 생성</div>
+      <div>· 입력 → SVGCanvas에 실시간 전달</div>
+      <div>· 프로젝트 저장 / 불러오기</div>
+      <div>· PDF / PNG 내보내기 버튼</div>
+      <div style="margin-top:8px;color:#a6adc8;">props</div>
+      <div style="background:#181825;border-radius:4px;padding:5px 7px;margin-top:4px;font-family:monospace;color:#89b4fa;font-size:9px;">fields: Field[]</div>
+      <div style="background:#181825;border-radius:4px;padding:5px 7px;margin-top:3px;font-family:monospace;color:#89b4fa;font-size:9px;">onFieldChange(id, val)</div>
+      <div style="background:#181825;border-radius:4px;padding:5px 7px;margin-top:3px;font-family:monospace;color:#89b4fa;font-size:9px;">onSave / onExport</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Data flow -->
+<div style="margin-top:16px;background:#181825;border-radius:8px;padding:14px;">
+  <div style="color:#f9e2af;font-size:11px;font-weight:700;margin-bottom:10px;">데이터 흐름</div>
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:10px;">
+    <span style="background:#313244;color:#cdd6f4;padding:4px 8px;border-radius:4px;">사용자 입력</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#313244;color:#cdd6f4;padding:4px 8px;border-radius:4px;">TextPanel</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#313244;color:#cdd6f4;padding:4px 8px;border-radius:4px;">onFieldChange()</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#f9e2af;color:#1e1e2e;padding:4px 8px;border-radius:4px;font-weight:700;">SVGCanvas 즉시 반영</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:10px;margin-top:8px;">
+    <span style="background:#313244;color:#cdd6f4;padding:4px 8px;border-radius:4px;">저장 버튼</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#313244;color:#cdd6f4;padding:4px 8px;border-radius:4px;">PUT /api/projects/[id]</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#a6e3a1;color:#1e1e2e;padding:4px 8px;border-radius:4px;font-weight:700;">SQLite 저장</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:10px;margin-top:8px;">
+    <span style="background:#313244;color:#cdd6f4;padding:4px 8px;border-radius:4px;">내보내기 버튼</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#313244;color:#cdd6f4;padding:4px 8px;border-radius:4px;">POST /api/export</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#313244;color:#cdd6f4;padding:4px 8px;border-radius:4px;">Puppeteer 렌더링</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#cba6f7;color:#1e1e2e;padding:4px 8px;border-radius:4px;font-weight:700;">PDF / PNG 다운로드</span>
+  </div>
+</div>
+
+<p style="text-align:center;color:#585b70;font-size:12px;margin-top:16px;">괜찮으면 터미널에서 승인해주세요</p>

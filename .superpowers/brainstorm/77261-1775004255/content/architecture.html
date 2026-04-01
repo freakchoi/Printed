@@ -1,0 +1,104 @@
+<h2>프린티드 — 전체 아키텍처</h2>
+<p class="subtitle">Next.js 14 단일 레포 · SQLite · 로컬 배포</p>
+
+<div style="display:flex;gap:20px;margin-top:20px;flex-wrap:wrap;">
+
+  <!-- Frontend Layer -->
+  <div style="flex:1;min-width:200px;">
+    <div style="background:#1e1e2e;border:1px solid #cba6f7;border-radius:8px;overflow:hidden;">
+      <div style="background:#cba6f7;color:#1e1e2e;padding:8px 14px;font-size:12px;font-weight:700;letter-spacing:.5px;">FRONTEND (Next.js App Router)</div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:6px;">
+        <div style="background:#181825;border-radius:5px;padding:8px 10px;">
+          <div style="color:#cdd6f4;font-size:11px;font-weight:600;">/ 로그인 페이지</div>
+          <div style="color:#6c7086;font-size:10px;margin-top:2px;">NextAuth Credentials</div>
+        </div>
+        <div style="background:#181825;border-radius:5px;padding:8px 10px;border:1px solid #cba6f7;">
+          <div style="color:#cdd6f4;font-size:11px;font-weight:600;">/editor — 메인 에디터</div>
+          <div style="color:#6c7086;font-size:10px;margin-top:2px;">3패널 레이아웃</div>
+          <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
+            <span style="background:#313244;color:#a6adc8;font-size:9px;padding:2px 6px;border-radius:3px;">LeftSidebar</span>
+            <span style="background:#313244;color:#a6adc8;font-size:9px;padding:2px 6px;border-radius:3px;">SVGCanvas</span>
+            <span style="background:#313244;color:#a6adc8;font-size:9px;padding:2px 6px;border-radius:3px;">TextPanel</span>
+          </div>
+        </div>
+        <div style="background:#181825;border-radius:5px;padding:8px 10px;">
+          <div style="color:#cdd6f4;font-size:11px;font-weight:600;">/settings — 계정 설정</div>
+          <div style="color:#6c7086;font-size:10px;margin-top:2px;">비밀번호 변경</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div style="display:flex;align-items:center;justify-content:center;color:#585b70;font-size:20px;padding:0 4px;">⇄</div>
+
+  <!-- Backend Layer -->
+  <div style="flex:1;min-width:200px;">
+    <div style="background:#1e1e2e;border:1px solid #89b4fa;border-radius:8px;overflow:hidden;">
+      <div style="background:#89b4fa;color:#1e1e2e;padding:8px 14px;font-size:12px;font-weight:700;letter-spacing:.5px;">API ROUTES (Next.js)</div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:6px;">
+        <div style="background:#181825;border-radius:5px;padding:8px 10px;">
+          <div style="color:#89b4fa;font-size:10px;font-weight:600;">POST /api/auth/[...nextauth]</div>
+          <div style="color:#6c7086;font-size:10px;margin-top:1px;">로그인 / 세션 관리</div>
+        </div>
+        <div style="background:#181825;border-radius:5px;padding:8px 10px;">
+          <div style="color:#89b4fa;font-size:10px;font-weight:600;">GET/POST /api/templates</div>
+          <div style="color:#6c7086;font-size:10px;margin-top:1px;">SVG 템플릿 목록 / 업로드</div>
+        </div>
+        <div style="background:#181825;border-radius:5px;padding:8px 10px;">
+          <div style="color:#89b4fa;font-size:10px;font-weight:600;">GET/PUT /api/projects/[id]</div>
+          <div style="color:#6c7086;font-size:10px;margin-top:1px;">편집 내용 불러오기 / 저장</div>
+        </div>
+        <div style="background:#181825;border-radius:5px;padding:8px 10px;">
+          <div style="color:#89b4fa;font-size:10px;font-weight:600;">POST /api/export</div>
+          <div style="color:#6c7086;font-size:10px;margin-top:1px;">Puppeteer → PDF / PNG 생성</div>
+        </div>
+        <div style="background:#181825;border-radius:5px;padding:8px 10px;">
+          <div style="color:#89b4fa;font-size:10px;font-weight:600;">PUT /api/user/password</div>
+          <div style="color:#6c7086;font-size:10px;margin-top:1px;">비밀번호 변경</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div style="display:flex;align-items:center;justify-content:center;color:#585b70;font-size:20px;padding:0 4px;">⇄</div>
+
+  <!-- Data Layer -->
+  <div style="flex:1;min-width:180px;">
+    <div style="background:#1e1e2e;border:1px solid #a6e3a1;border-radius:8px;overflow:hidden;">
+      <div style="background:#a6e3a1;color:#1e1e2e;padding:8px 14px;font-size:12px;font-weight:700;letter-spacing:.5px;">DATA LAYER</div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:6px;">
+        <div style="background:#181825;border-radius:5px;padding:8px 10px;">
+          <div style="color:#a6e3a1;font-size:11px;font-weight:600;">SQLite + Prisma</div>
+          <div style="color:#6c7086;font-size:10px;margin-top:4px;">User</div>
+          <div style="color:#6c7086;font-size:10px;">Template</div>
+          <div style="color:#6c7086;font-size:10px;">Project</div>
+        </div>
+        <div style="background:#181825;border-radius:5px;padding:8px 10px;">
+          <div style="color:#a6e3a1;font-size:11px;font-weight:600;">로컬 파일시스템</div>
+          <div style="color:#6c7086;font-size:10px;margin-top:4px;">/uploads/svg — 원본 SVG</div>
+          <div style="color:#6c7086;font-size:10px;">/exports — 출력 파일</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px;background:#181825;border-radius:8px;padding:14px;border-left:3px solid #f38ba8;">
+  <div style="color:#f38ba8;font-size:11px;font-weight:700;margin-bottom:6px;">SVG 텍스트 감지 흐름</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <span style="background:#313244;color:#cdd6f4;font-size:10px;padding:4px 8px;border-radius:4px;">SVG 업로드</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#313244;color:#cdd6f4;font-size:10px;padding:4px 8px;border-radius:4px;">&lt;text&gt; 요소 파싱</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#313244;color:#cdd6f4;font-size:10px;padding:4px 8px;border-radius:4px;">필드 ID + 기본값 추출</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#313244;color:#cdd6f4;font-size:10px;padding:4px 8px;border-radius:4px;">우측 패널 자동 생성</span>
+    <span style="color:#585b70;">→</span>
+    <span style="background:#313244;color:#cdd6f4;font-size:10px;padding:4px 8px;border-radius:4px;">실시간 SVG 반영</span>
+  </div>
+</div>
+
+<p style="text-align:center;color:#585b70;font-size:12px;margin-top:16px;">이 구조로 괜찮으면 터미널에서 승인해주세요</p>

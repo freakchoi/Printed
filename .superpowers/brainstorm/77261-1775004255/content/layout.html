@@ -1,0 +1,120 @@
+<h2>에디터 레이아웃 선택</h2>
+<p class="subtitle">프린티드의 3패널 에디터 구조 — 어떤 레이아웃이 더 적합한가요?</p>
+
+<div class="split" style="gap:24px;margin-top:24px;">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)" style="cursor:pointer;padding:0;overflow:hidden;">
+    <div style="background:#1e1e2e;color:#cdd6f4;padding:10px 14px;font-size:13px;font-weight:600;letter-spacing:.5px;">A — 고정폭 사이드바</div>
+    <div class="card-body" style="padding:0;">
+      <div style="display:flex;height:320px;font-size:11px;">
+        <!-- Left sidebar -->
+        <div style="width:140px;background:#181825;border-right:1px solid #313244;padding:10px;flex-shrink:0;">
+          <div style="color:#a6adc8;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">판촉물</div>
+          <div style="background:#cba6f7;color:#1e1e2e;padding:5px 8px;border-radius:4px;margin-bottom:4px;font-weight:600;">명함</div>
+          <div style="color:#cdd6f4;padding:5px 8px;margin-bottom:4px;">서류봉투</div>
+          <div style="color:#cdd6f4;padding:5px 8px;margin-bottom:4px;">레터헤드</div>
+          <div style="color:#cdd6f4;padding:5px 8px;margin-bottom:4px;">브로셔</div>
+          <div style="color:#cdd6f4;padding:5px 8px;margin-bottom:4px;">스티커</div>
+          <div style="margin-top:16px;padding:5px 8px;border:1px dashed #45475a;border-radius:4px;color:#6c7086;text-align:center;">+ 추가</div>
+        </div>
+        <!-- Center preview -->
+        <div style="flex:1;background:#11111b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+          <div style="width:200px;height:115px;background:#1e1e2e;border-radius:6px;border:1px solid #313244;display:flex;flex-direction:column;justify-content:flex-end;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,.4);">
+            <div style="color:#cdd6f4;font-size:12px;font-weight:700;">홍길동</div>
+            <div style="color:#a6adc8;font-size:9px;margin-top:2px;">마케팅팀 선임</div>
+            <div style="color:#6c7086;font-size:9px;margin-top:4px;">010-1234-5678</div>
+            <div style="color:#6c7086;font-size:9px;">hong@company.com</div>
+          </div>
+          <div style="color:#585b70;font-size:10px;">앞면 미리보기</div>
+        </div>
+        <!-- Right sidebar -->
+        <div style="width:160px;background:#181825;border-left:1px solid #313244;padding:10px;flex-shrink:0;overflow-y:auto;">
+          <div style="color:#a6adc8;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">텍스트 수정</div>
+          <div style="margin-bottom:10px;">
+            <div style="color:#cdd6f4;font-size:10px;margin-bottom:3px;">이름</div>
+            <div style="background:#1e1e2e;border:1px solid #45475a;border-radius:3px;padding:4px 6px;color:#cba6f7;font-size:10px;">홍길동</div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div style="color:#cdd6f4;font-size:10px;margin-bottom:3px;">직함</div>
+            <div style="background:#1e1e2e;border:1px solid #45475a;border-radius:3px;padding:4px 6px;color:#cdd6f4;font-size:10px;">마케팅팀 선임</div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div style="color:#cdd6f4;font-size:10px;margin-bottom:3px;">연락처</div>
+            <div style="background:#1e1e2e;border:1px solid #45475a;border-radius:3px;padding:4px 6px;color:#cdd6f4;font-size:10px;">010-1234-5678</div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div style="color:#cdd6f4;font-size:10px;margin-bottom:3px;">이메일</div>
+            <div style="background:#1e1e2e;border:1px solid #45475a;border-radius:3px;padding:4px 6px;color:#cdd6f4;font-size:10px;">hong@company.com</div>
+          </div>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:5px;">
+            <div style="background:#cba6f7;color:#1e1e2e;padding:5px;border-radius:4px;text-align:center;font-size:10px;font-weight:700;">PDF 저장</div>
+            <div style="background:#313244;color:#cdd6f4;padding:5px;border-radius:4px;text-align:center;font-size:10px;">PNG 저장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:10px 14px;background:#181825;border-top:1px solid #313244;">
+      <div style="font-size:12px;font-weight:600;color:#cdd6f4;margin-bottom:3px;">고정폭 — 항상 3패널 표시</div>
+      <div style="font-size:11px;color:#6c7086;">좌측 140px 고정 / 우측 160px 고정 / 중앙 유동</div>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)" style="cursor:pointer;padding:0;overflow:hidden;">
+    <div style="background:#1e1e2e;color:#cdd6f4;padding:10px 14px;font-size:13px;font-weight:600;letter-spacing:.5px;">B — 접을 수 있는 사이드바</div>
+    <div class="card-body" style="padding:0;">
+      <div style="display:flex;height:320px;font-size:11px;">
+        <!-- Left sidebar collapsed to icons -->
+        <div style="width:48px;background:#181825;border-right:1px solid #313244;padding:8px 4px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div style="width:32px;height:32px;background:#cba6f7;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#1e1e2e;font-size:10px;font-weight:700;">명</div>
+          <div style="width:32px;height:32px;background:#313244;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#a6adc8;font-size:10px;">봉</div>
+          <div style="width:32px;height:32px;background:#313244;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#a6adc8;font-size:10px;">레</div>
+          <div style="width:32px;height:32px;background:#313244;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#a6adc8;font-size:10px;">브</div>
+          <div style="width:32px;height:32px;border:1px dashed #45475a;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#6c7086;font-size:14px;">+</div>
+        </div>
+        <!-- Center preview - wider -->
+        <div style="flex:1;background:#11111b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+          <div style="width:210px;height:120px;background:#1e1e2e;border-radius:6px;border:1px solid #313244;display:flex;flex-direction:column;justify-content:flex-end;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,.4);">
+            <div style="color:#cdd6f4;font-size:12px;font-weight:700;">홍길동</div>
+            <div style="color:#a6adc8;font-size:9px;margin-top:2px;">마케팅팀 선임</div>
+            <div style="color:#6c7086;font-size:9px;margin-top:4px;">010-1234-5678</div>
+            <div style="color:#6c7086;font-size:9px;">hong@company.com</div>
+          </div>
+          <div style="color:#585b70;font-size:10px;">프리뷰 영역이 더 넓음</div>
+        </div>
+        <!-- Right sidebar -->
+        <div style="width:160px;background:#181825;border-left:1px solid #313244;padding:10px;flex-shrink:0;">
+          <div style="color:#a6adc8;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">텍스트 수정</div>
+          <div style="margin-bottom:10px;">
+            <div style="color:#cdd6f4;font-size:10px;margin-bottom:3px;">이름</div>
+            <div style="background:#1e1e2e;border:1px solid #45475a;border-radius:3px;padding:4px 6px;color:#cba6f7;font-size:10px;">홍길동</div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div style="color:#cdd6f4;font-size:10px;margin-bottom:3px;">직함</div>
+            <div style="background:#1e1e2e;border:1px solid #45475a;border-radius:3px;padding:4px 6px;color:#cdd6f4;font-size:10px;">마케팅팀 선임</div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div style="color:#cdd6f4;font-size:10px;margin-bottom:3px;">연락처</div>
+            <div style="background:#1e1e2e;border:1px solid #45475a;border-radius:3px;padding:4px 6px;color:#cdd6f4;font-size:10px;">010-1234-5678</div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div style="color:#cdd6f4;font-size:10px;margin-bottom:3px;">이메일</div>
+            <div style="background:#1e1e2e;border:1px solid #45475a;border-radius:3px;padding:4px 6px;color:#cdd6f4;font-size:10px;">hong@company.com</div>
+          </div>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:5px;">
+            <div style="background:#cba6f7;color:#1e1e2e;padding:5px;border-radius:4px;text-align:center;font-size:10px;font-weight:700;">PDF 저장</div>
+            <div style="background:#313244;color:#cdd6f4;padding:5px;border-radius:4px;text-align:center;font-size:10px;">PNG 저장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:10px 14px;background:#181825;border-top:1px solid #313244;">
+      <div style="font-size:12px;font-weight:600;color:#cdd6f4;margin-bottom:3px;">접기형 — 좌측 아이콘으로 축소 가능</div>
+      <div style="font-size:11px;color:#6c7086;">프리뷰 공간 극대화, 아이콘 클릭 시 확장</div>
+    </div>
+  </div>
+
+</div>
+
+<p style="text-align:center;color:#585b70;font-size:12px;margin-top:16px;">클릭하여 선택 후 터미널에서 알려주세요</p>

@@ -1,0 +1,73 @@
+<h2>데이터 모델 (Prisma Schema)</h2>
+<p class="subtitle">SQLite · 3개 테이블</p>
+
+<div style="display:flex;gap:16px;margin-top:20px;flex-wrap:wrap;">
+
+  <!-- User -->
+  <div style="flex:1;min-width:180px;background:#1e1e2e;border:1px solid #cba6f7;border-radius:8px;overflow:hidden;">
+    <div style="background:#cba6f7;color:#1e1e2e;padding:8px 14px;font-size:12px;font-weight:700;">User</div>
+    <div style="padding:12px;font-size:11px;font-family:monospace;display:flex;flex-direction:column;gap:4px;">
+      <div><span style="color:#89b4fa;">id</span> <span style="color:#a6e3a1;">String</span> <span style="color:#f38ba8;">@id</span></div>
+      <div><span style="color:#89b4fa;">username</span> <span style="color:#a6e3a1;">String</span> <span style="color:#f38ba8;">@unique</span></div>
+      <div><span style="color:#89b4fa;">passwordHash</span> <span style="color:#a6e3a1;">String</span></div>
+      <div><span style="color:#89b4fa;">createdAt</span> <span style="color:#a6e3a1;">DateTime</span></div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #313244;color:#6c7086;">↓ relations</div>
+      <div><span style="color:#f9e2af;">projects</span> Project[]</div>
+    </div>
+  </div>
+
+  <!-- Template -->
+  <div style="flex:1;min-width:180px;background:#1e1e2e;border:1px solid #89b4fa;border-radius:8px;overflow:hidden;">
+    <div style="background:#89b4fa;color:#1e1e2e;padding:8px 14px;font-size:12px;font-weight:700;">Template</div>
+    <div style="padding:12px;font-size:11px;font-family:monospace;display:flex;flex-direction:column;gap:4px;">
+      <div><span style="color:#89b4fa;">id</span> <span style="color:#a6e3a1;">String</span> <span style="color:#f38ba8;">@id</span></div>
+      <div><span style="color:#89b4fa;">name</span> <span style="color:#a6e3a1;">String</span></div>
+      <div><span style="color:#89b4fa;">category</span> <span style="color:#a6e3a1;">String</span> <span style="color:#6c7086;">// 명함·봉투 등</span></div>
+      <div><span style="color:#89b4fa;">svgPath</span> <span style="color:#a6e3a1;">String</span> <span style="color:#6c7086;">// 파일 경로</span></div>
+      <div><span style="color:#89b4fa;">fields</span> <span style="color:#a6e3a1;">Json</span> <span style="color:#6c7086;">// 감지된 텍스트 필드</span></div>
+      <div><span style="color:#89b4fa;">thumbnail</span> <span style="color:#a6e3a1;">String?</span></div>
+      <div><span style="color:#89b4fa;">createdAt</span> <span style="color:#a6e3a1;">DateTime</span></div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #313244;color:#6c7086;">↓ relations</div>
+      <div><span style="color:#f9e2af;">projects</span> Project[]</div>
+    </div>
+  </div>
+
+  <!-- Project -->
+  <div style="flex:1;min-width:180px;background:#1e1e2e;border:1px solid #a6e3a1;border-radius:8px;overflow:hidden;">
+    <div style="background:#a6e3a1;color:#1e1e2e;padding:8px 14px;font-size:12px;font-weight:700;">Project</div>
+    <div style="padding:12px;font-size:11px;font-family:monospace;display:flex;flex-direction:column;gap:4px;">
+      <div><span style="color:#89b4fa;">id</span> <span style="color:#a6e3a1;">String</span> <span style="color:#f38ba8;">@id</span></div>
+      <div><span style="color:#89b4fa;">name</span> <span style="color:#a6e3a1;">String</span> <span style="color:#6c7086;">// 저장 이름</span></div>
+      <div><span style="color:#89b4fa;">values</span> <span style="color:#a6e3a1;">Json</span> <span style="color:#6c7086;">// 필드별 입력값</span></div>
+      <div><span style="color:#89b4fa;">updatedAt</span> <span style="color:#a6e3a1;">DateTime</span></div>
+      <div><span style="color:#89b4fa;">createdAt</span> <span style="color:#a6e3a1;">DateTime</span></div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #313244;color:#6c7086;">↓ FK</div>
+      <div><span style="color:#f9e2af;">userId</span> String</div>
+      <div><span style="color:#f9e2af;">templateId</span> String</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- fields JSON example -->
+<div style="margin-top:20px;background:#181825;border-radius:8px;padding:14px;">
+  <div style="color:#f9e2af;font-size:11px;font-weight:700;margin-bottom:8px;">Template.fields 예시 (명함)</div>
+  <pre style="font-size:10px;color:#cdd6f4;margin:0;line-height:1.6;">[
+  { "id": "text-name",    "label": "이름",   "defaultValue": "홍길동" },
+  { "id": "text-title",   "label": "직함",   "defaultValue": "마케팅팀 선임" },
+  { "id": "text-phone",   "label": "연락처", "defaultValue": "010-0000-0000" },
+  { "id": "text-email",   "label": "이메일", "defaultValue": "name@company.com" }
+]</pre>
+</div>
+
+<div style="margin-top:12px;background:#181825;border-radius:8px;padding:14px;">
+  <div style="color:#f9e2af;font-size:11px;font-weight:700;margin-bottom:8px;">Project.values 예시</div>
+  <pre style="font-size:10px;color:#cdd6f4;margin:0;line-height:1.6;">{
+  "text-name":  "이순신",
+  "text-title": "개발팀 리드",
+  "text-phone": "010-9876-5432",
+  "text-email": "lee@company.com"
+}</pre>
+</div>
+
+<p style="text-align:center;color:#585b70;font-size:12px;margin-top:16px;">괜찮으면 터미널에서 승인해주세요</p>
