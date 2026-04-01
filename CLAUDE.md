@@ -29,7 +29,7 @@ gs --version               # 설치 확인
 
 ## 기술 스택
 
-- **Framework**: Next.js 14 App Router
+- **Framework**: Next.js 16 App Router
 - **Style**: Tailwind CSS + shadcn/ui
 - **DB**: SQLite + Prisma ORM (`prisma/schema.prisma`)
 - **Auth**: NextAuth.js Credentials (`lib/auth.ts`)
