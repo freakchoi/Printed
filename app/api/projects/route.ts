@@ -11,7 +11,11 @@ export async function GET() {
     orderBy: { updatedAt: 'desc' },
     include: { template: { select: { name: true, category: true } } },
   })
-  return NextResponse.json(projects.map(p => ({ ...p, values: JSON.parse(p.values) })))
+  try {
+    return NextResponse.json(projects.map(p => ({ ...p, values: JSON.parse(p.values) })))
+  } catch {
+    return NextResponse.json({ error: '데이터 파싱 오류' }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest) {

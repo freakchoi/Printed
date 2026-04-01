@@ -16,11 +16,15 @@ export async function GET(
   })
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  return NextResponse.json({
-    ...project,
-    values: JSON.parse(project.values),
-    template: { ...project.template, fields: JSON.parse(project.template.fields) },
-  })
+  try {
+    return NextResponse.json({
+      ...project,
+      values: JSON.parse(project.values),
+      template: { ...project.template, fields: JSON.parse(project.template.fields) },
+    })
+  } catch {
+    return NextResponse.json({ error: '데이터 파싱 오류' }, { status: 500 })
+  }
 }
 
 export async function PUT(
@@ -32,6 +36,9 @@ export async function PUT(
 
   const { id } = await params
   const { name, values } = await req.json()
+  if (!name || values === undefined) {
+    return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
+  }
 
   const updated = await prisma.project.updateMany({
     where: { id, userId: session.user!.id! },
