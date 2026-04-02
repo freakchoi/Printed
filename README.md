@@ -130,27 +130,52 @@ npx prisma db seed
 
 현재 구조는 로컬 SQLite, 로컬 업로드 디렉터리, Ghostscript, Puppeteer를 그대로 사용하므로 `ngrok`가 가장 현실적이다.
 
-1. 서버 실행
+1. `ngrok` 설치 및 로그인
+
+macOS:
 
 ```bash
-npm run build
-npm run start
+brew install ngrok/ngrok/ngrok
+ngrok config add-authtoken <your-ngrok-token>
+ngrok version
 ```
 
-2. 다른 터미널에서 tunnel 생성
+2. `.env.local`의 인증 도메인을 ngrok 주소로 바꿀 준비
+
+- 기본 로컬값:
 
 ```bash
-ngrok http 3000
+AUTH_URL=http://localhost:3000
+NEXTAUTH_URL=http://localhost:3000
 ```
 
-3. 발급된 `https://...ngrok.app` 주소로 `.env.local` 수정
+- ngrok 주소를 받은 뒤 아래처럼 바꾼다.
 
 ```bash
 AUTH_URL=https://your-ngrok-domain.ngrok.app
 NEXTAUTH_URL=https://your-ngrok-domain.ngrok.app
 ```
 
-4. 서버 재시작 후 외부에서 접속
+3. 서버 실행
+
+```bash
+npm run build
+npm run start
+```
+
+4. 다른 터미널에서 tunnel 생성
+
+```bash
+ngrok http 3000
+```
+
+5. 발급된 `https://...ngrok.app` 주소를 `.env.local`에 반영한 뒤 서버 재시작
+
+```bash
+npm run start
+```
+
+6. 외부에서 접속
 
 권장:
 
