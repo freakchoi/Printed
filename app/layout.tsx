@@ -6,7 +6,14 @@ import { SessionProvider } from 'next-auth/react'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata: Metadata = { title: 'Printed' }
+export const metadata: Metadata = {
+  title: 'Printed',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

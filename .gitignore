@@ -43,5 +43,6 @@ next-env.d.ts
 # project specific
 /uploads
 /exports
+.playwright-cli/
 *.db
 .env.local
