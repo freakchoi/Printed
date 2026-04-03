@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { FileStack, FileText, Image as ImageIconLucide, ImageIcon, Layers3, ScanSearch, StretchHorizontal, StretchVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -53,6 +54,17 @@ export function ExportDialog({
   onRasterModeChange,
   onSelectionModeChange,
 }: ExportDialogProps) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   if (!isOpen) return null
   const isConfirmDisabled = isExporting || !fileName.trim()
   const roomyInputClass = 'h-10 rounded-md px-3 py-2'
@@ -89,8 +101,8 @@ export function ExportDialog({
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6 backdrop-blur-sm">
-      <div className="flex max-h-[calc(100dvh-48px)] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
+    <div className="motion-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6 backdrop-blur-sm" onClick={onClose}>
+      <div className="motion-modal-sheet motion-modal-card flex max-h-[calc(100dvh-48px)] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="border-b px-6 py-5">
           <p className="text-lg font-semibold tracking-tight text-foreground">내보내기</p>
           <p className="mt-1 text-sm text-muted-foreground">파일 이름과 저장 방식을 선택한 뒤 포맷별 옵션을 조정합니다.</p>
@@ -248,8 +260,8 @@ export function ExportDialog({
         </div>
 
         <div className="flex justify-end gap-2 border-t px-6 py-5">
-          <Button type="button" variant="outline" onClick={onClose}>취소</Button>
-          <Button type="button" disabled={isConfirmDisabled} onClick={onConfirm}>
+          <Button type="button" variant="outline" className="editor-press" onClick={onClose}>취소</Button>
+          <Button type="button" className="editor-press" disabled={isConfirmDisabled} onClick={onConfirm}>
             {isExporting
               ? `${format === 'pdf' ? 'PDF' : format === 'png' ? 'PNG' : 'JPG'} 생성 중...`
               : `${format === 'pdf' ? 'PDF' : format === 'png' ? 'PNG' : 'JPG'} 저장`}

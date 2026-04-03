@@ -79,8 +79,8 @@ export function TemplateEditDialog({
   if (!isOpen || !template) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
+    <div className="motion-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+      <div className="motion-modal-sheet motion-modal-card w-full max-w-lg rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]" role="dialog" aria-modal="true">
         <div className="border-b px-6 py-5">
           <p className="text-lg font-semibold tracking-tight text-foreground">템플릿 수정</p>
           <p className="mt-1 text-sm text-muted-foreground">템플릿명, 분류, 대지명을 조정할 수 있습니다.</p>

@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { requireAdmin, requireSession } from '@/lib/authorization'
 import { prisma } from '@/lib/prisma'
-import { normalizeSVGForEditing } from '@/lib/svg-parser'
+import { normalizeSVGForEditing, extractSVGFontFamilies } from '@/lib/svg-parser'
+import { ensureFontsDownloaded } from '@/lib/font-downloader.server'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { buildTemplateListItem } from '@/lib/template-server'
 import { getSvgDimensions } from '@/lib/svg-dimensions'
+import { ADOBE_WORKING_CMYK_PRESETS } from '@/lib/print-color'
 import type { AdobeWorkingCmykPreset, PrintColorProfileMode } from '@/lib/template-model'
 
 function asSvgFiles(input: FormDataEntryValue[]) {
@@ -75,11 +77,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '인쇄용 CMYK 프로파일을 선택해주세요.' }, { status: 400 })
   }
 
+  if (
+    printColorProfileMode === 'adobe-working-cmyk' &&
+    !ADOBE_WORKING_CMYK_PRESETS.some(p => p.value === adobeWorkingCmykPreset)
+  ) {
+    return NextResponse.json({ error: '지원하지 않는 CMYK 프로파일 프리셋입니다.' }, { status: 400 })
+  }
+
   if (printColorProfileMode === 'custom-icc' && !(customIcc instanceof File)) {
     return NextResponse.json({ error: '사용자 ICC 프로파일 파일이 필요합니다.' }, { status: 400 })
   }
 
-  if (files.some(file => !file.name.toLowerCase().endsWith('.svg') && file.type !== 'image/svg+xml')) {
+  if (files.some(file => !file.name.toLowerCase().endsWith('.svg') || file.type !== 'image/svg+xml')) {
     return NextResponse.json({ error: 'SVG 파일만 업로드 가능합니다' }, { status: 400 })
   }
 
@@ -108,6 +117,7 @@ export async function POST(req: NextRequest) {
       name: `대지 ${index + 1}`,
       order: index,
       svgPath,
+      svgContent: normalized.normalizedSvg,
       fields: JSON.stringify(normalized.fields),
       width: dimensions.width,
       height: dimensions.height,
@@ -118,6 +128,13 @@ export async function POST(req: NextRequest) {
       generatedFieldCount: normalized.generatedFieldCount,
     }
   }))
+
+  // Detect fonts across all sheets and download missing ones
+  const allFontFamilies = [...new Set(preparedSheets.flatMap(sheet => extractSVGFontFamilies(sheet.svgContent)))]
+  const fontDownloadResults = await ensureFontsDownloaded(allFontFamilies).catch((err) => {
+    console.warn('[templates] Font download failed, continuing without fonts:', err)
+    return []
+  })
 
   const firstSheet = preparedSheets[0]
 
@@ -160,6 +177,7 @@ export async function POST(req: NextRequest) {
       colorProfileMode: template.printColorProfileMode,
       adobeWorkingCmykPreset: template.adobeWorkingCmykPreset,
       customIccPath: template.customIccPath,
+      sourceRgbIcc: template.sourceRgbIcc ?? null,
     },
     sheets: template.sheets.map((sheet, index) => ({
       ...sheet,
@@ -170,6 +188,13 @@ export async function POST(req: NextRequest) {
       heightPx: preparedSheets[index]?.heightPx ?? sheet.heightPx ?? 0,
       fieldCount: preparedSheets[index]?.fieldCount ?? 0,
       generatedFieldCount: preparedSheets[index]?.generatedFieldCount ?? 0,
+    })),
+    fonts: fontDownloadResults.map(result => ({
+      family: result.family,
+      downloaded: result.downloaded.length,
+      skipped: result.skipped.length,
+      failed: result.failed,
+      requiresManualUpload: result.requiresManualUpload,
     })),
   }, { status: 201 })
 }

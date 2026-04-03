@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DOMPurify from 'dompurify'
-import { AlertCircle, Download, GripVertical, Minus, PencilLine, Plus, Save, Trash2, X } from 'lucide-react'
+import { AlertCircle, Download, GripVertical, PencilLine, Plus, Save, Trash2, X } from 'lucide-react'
+import { LoadingOverlay } from '@/components/editor/LoadingOverlay'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatSheetDimensions, makeArtboardDisplayName, type ProjectSheetSnapshot, type ProjectValuesBySheet, type TemplateSheetDetail } from '@/lib/template-model'
@@ -136,6 +137,11 @@ function computeDynamicMaxZoom(args: {
   )
 }
 
+const BOARD_PADDING = 24
+const HORIZONTAL_CHROME = 32
+const VERTICAL_CHROME = 76
+const DOCUMENT_GAP = 32
+
 export function SVGCanvas({
   activeSheetId = null,
   error = null,
@@ -188,10 +194,6 @@ export function SVGCanvas({
   const [selectedFieldBox, setSelectedFieldBox] = useState<SelectedFieldBox | null>(null)
   const activeStageObserverRef = useRef<ResizeObserver | null>(null)
   const measurementFrameRef = useRef<number | null>(null)
-  const BOARD_PADDING = 24
-  const HORIZONTAL_CHROME = 32
-  const VERTICAL_CHROME = 76
-  const DOCUMENT_GAP = 32
   const effectiveZoomScale = Math.min(maxZoomScale, Math.max(0.1, zoomScale))
   const floatingHeaderDensity = effectiveZoomScale < 0.4 ? 'compact-2' : effectiveZoomScale < 0.6 ? 'compact-1' : 'default'
   const sharpIconButtonClass = 'flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
@@ -201,6 +203,7 @@ export function SVGCanvas({
     return sheets.map(sheet => {
       const sanitized = DOMPurify.sanitize(applyFieldValuesToSVG(sheet.svgContent, valuesBySheet[sheet.id] ?? {}), {
         USE_PROFILES: { svg: true },
+        FORBID_ATTR: ['onload', 'onclick', 'onerror', 'onmouseover', 'onfocus', 'onblur'],
       })
       const markup = /<svg\b/i.test(sanitized) ? enhanceResponsiveSVG(sanitized) : ''
       if (process.env.NODE_ENV !== 'production' && !markup) {
@@ -372,10 +375,11 @@ export function SVGCanvas({
   }, [BOARD_PADDING, DOCUMENT_GAP, HORIZONTAL_CHROME, VERTICAL_CHROME, fitRequestKey, onFitScaleCalculated, onMaxZoomCalculated, renderedSheets, zoomPreset])
 
   const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    if (Math.abs(event.deltaX) > Math.abs(event.deltaY) && !event.ctrlKey) {
+    const isZoomGesture = event.ctrlKey || event.metaKey
+    if (!isZoomGesture) return
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
       return
     }
-    if (!event.ctrlKey) return
     event.preventDefault()
     onZoomWheel?.(event.deltaY > 0 ? -0.05 : 0.05)
   }
@@ -398,10 +402,10 @@ export function SVGCanvas({
     setEditingSheetId(null)
   }
 
-  if (isLoading) {
+  if (isLoading && renderedSheets.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center bg-muted/25 p-10">
-        <div className="w-full max-w-4xl border border-dashed border-border bg-card/85 p-10 text-center">
+        <div className="motion-fade-up w-full max-w-4xl border border-dashed border-border bg-card/85 p-10 text-center">
           <p className="text-sm font-medium text-foreground">템플릿 문서를 준비하는 중입니다.</p>
         </div>
       </div>
@@ -411,7 +415,7 @@ export function SVGCanvas({
   if (error) {
     return (
       <div className="flex flex-1 items-center justify-center bg-muted/25 p-10">
-        <div className="w-full max-w-4xl border border-destructive/20 bg-card p-10 text-center">
+        <div className="motion-fade-up w-full max-w-4xl border border-destructive/20 bg-card p-10 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
             <AlertCircle size={20} />
           </div>
@@ -423,8 +427,8 @@ export function SVGCanvas({
   }
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--editor-workspace)]">
-      <div className="border-b bg-card/95 px-5 py-3 backdrop-blur-sm">
+    <div className="motion-fade-in motion-surface flex h-full min-h-0 min-w-0 flex-col bg-[var(--editor-workspace)]">
+      <div className="motion-surface border-b bg-card/95 px-5 py-3 backdrop-blur-sm">
         <div className="flex min-h-12 items-center justify-between gap-4">
           {isProjectPreview ? (
             <div className="min-w-0">
@@ -450,7 +454,7 @@ export function SVGCanvas({
                     <button
                       type="button"
                       onClick={onStartProjectNameEdit}
-                      className={sharpIconButtonClass}
+                      className={cn(sharpIconButtonClass, 'editor-press')}
                       aria-label="작업 이름 수정"
                     >
                       <PencilLine size={14} />
@@ -467,38 +471,20 @@ export function SVGCanvas({
           )}
 
           <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-1.5">
-              <Button size="sm" variant="outline" className="h-8 rounded-md" onClick={onZoomOut} disabled={effectiveZoomScale <= 0.101}>
-                <Minus size={14} />
-              </Button>
-              <button
-                type="button"
-                onClick={onZoomFit}
-                className="min-w-[64px] rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-accent/60"
-              >
-                {zoomLabel}
-              </button>
-              <Button size="sm" variant="outline" className="h-8 rounded-md" onClick={onZoomIn} disabled={effectiveZoomScale >= maxZoomScale - 0.001}>
-                <Plus size={14} />
-              </Button>
-              <Button size="sm" variant="outline" className="h-8 rounded-md" onClick={onZoomFit}>
-                맞춤
-              </Button>
-            </div>
             <div className={sharpDividerClass} />
             {isProjectPreview ? (
               <div className="inline-flex items-center gap-1.5">
-                <Button size="sm" variant="outline" className="h-8 rounded-md" onClick={onOpenSave} disabled={isSaving}>
+                <Button size="sm" variant="outline" className="editor-press h-8 rounded-md" onClick={onOpenSave} disabled={isSaving}>
                   <Save size={14} className="mr-1" />
                   {isSaving ? '저장 중...' : '저장'}
                 </Button>
-                <Button size="sm" variant="outline" className="h-8 rounded-md" onClick={onOpenExport} disabled={isExporting}>
+                <Button size="sm" variant="outline" className="editor-press h-8 rounded-md" onClick={onOpenExport} disabled={isExporting}>
                   <Download size={14} className="mr-1" />
                   {isExporting ? '내보내는 중...' : '내보내기'}
                 </Button>
               </div>
             ) : (
-              <Button size="sm" className="h-8 rounded-md" onClick={onCreateProject}>
+              <Button size="sm" className="editor-press h-8 rounded-md" onClick={onCreateProject}>
                 <Plus size={14} className="mr-1" />
                 만들기
               </Button>
@@ -507,7 +493,7 @@ export function SVGCanvas({
               <>
                 <div className={sharpDividerClass} />
                 <div className="inline-flex items-center">
-                  <Button size="sm" variant="outline" className="h-8 rounded-md border-destructive/30 text-destructive hover:bg-destructive/8 hover:text-destructive" onClick={onDeleteProject}>
+                  <Button size="sm" variant="outline" className="editor-press h-8 rounded-md border-destructive/30 text-destructive hover:bg-destructive/8 hover:text-destructive" onClick={onDeleteProject}>
                     <Trash2 size={14} className="mr-1" />
                     삭제
                   </Button>
@@ -520,9 +506,14 @@ export function SVGCanvas({
 
       <div
         ref={containerRef}
-        className="min-h-0 flex-1 overflow-auto"
+        className="relative min-h-0 flex-1 overflow-auto scroll-smooth"
         onWheel={handleWheel}
       >
+        <LoadingOverlay
+          isVisible={isLoading || isSaving || isExporting}
+          title={isLoading ? '문서를 불러오는 중' : isSaving ? '작업을 저장하는 중' : '파일을 준비하는 중'}
+          description={isLoading ? '현재 화면은 유지한 채 필요한 데이터만 다시 가져오고 있습니다.' : isSaving ? '현재 변경사항을 안전하게 기록하고 있습니다.' : '저장 후 내보내기를 이어서 처리하고 있습니다.'}
+        />
         <div className="mx-auto flex min-h-full w-full flex-col items-center gap-8 py-8">
             {renderedSheets.map((sheet, index) => {
               const isActive = sheet.id === activeSheetId
@@ -537,7 +528,7 @@ export function SVGCanvas({
                   key={sheet.id}
                   data-sheet-id={sheet.id}
                   className={cn(
-                    'relative mx-auto w-fit border px-3 pb-3 pt-6 sm:px-4 sm:pb-4',
+                    'motion-zoom-shell relative mx-auto w-fit border px-3 pb-3 pt-6 sm:px-4 sm:pb-4',
                     'bg-[var(--editor-artboard-shell)]',
                     isActive
                       ? 'border-primary/45 ring-1 ring-primary/20'
@@ -590,7 +581,7 @@ export function SVGCanvas({
                   ) : null}
                   <div
                     className={cn(
-                    'absolute left-3 top-0 z-10 flex -translate-y-1/2 items-center rounded-md border shadow-[0_10px_22px_rgba(15,23,42,0.12)] sm:left-4',
+                    'motion-floating absolute left-3 top-0 z-10 flex -translate-y-1/2 items-center rounded-md border shadow-[0_10px_22px_rgba(15,23,42,0.12)] sm:left-4',
                     isUltraCompactHeader ? 'gap-1.5 px-2 py-1.5' : isCompactHeader ? 'gap-2 px-3 py-1.5' : 'gap-3 px-4 py-2',
                     isActive
                       ? 'border-primary/30 bg-card text-foreground'
@@ -694,7 +685,7 @@ export function SVGCanvas({
                   {sheet.markup ? (
                     <div className="sheet-surface mx-auto mt-4 flex items-center justify-center">
                       <div
-                        className="relative overflow-hidden bg-white"
+                        className="motion-zoom-surface relative overflow-hidden bg-white"
                         data-stage-sheet-id={sheet.id}
                         style={{ width: `${stageWidth}px`, height: `${stageHeight}px` }}
                       >
@@ -702,7 +693,7 @@ export function SVGCanvas({
                         <div className="pointer-events-none absolute inset-0">
                           {selectedFieldBox && isActive && selectedFieldId ? (
                             <div
-                              className="absolute rounded-lg border border-primary/50 bg-primary/10 shadow-[0_8px_20px_rgba(13,111,252,0.08)]"
+                              className="motion-zoom-surface absolute rounded-lg border border-primary/50 bg-primary/10 shadow-[0_8px_20px_rgba(13,111,252,0.08)]"
                               style={{
                                 left: `${selectedFieldBox.left}px`,
                                 top: `${selectedFieldBox.top}px`,

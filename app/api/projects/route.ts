@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getProjectPersistenceCapabilities, normalizeActorIdentity, recordProjectActivityIfSupported } from '@/lib/project-activity.server'
 import { buildTemplateDetail, hydrateSheetSvgAndFields } from '@/lib/template-server'
 import { createProjectSheetSnapshots, normalizeProjectSheetSnapshot, normalizeProjectValues, reconcileProjectSheetSnapshotDimensions } from '@/lib/template-model'
 
@@ -9,27 +10,56 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const templateId = req.nextUrl.searchParams.get('templateId')
+  const capabilities = await getProjectPersistenceCapabilities(prisma)
 
   const projects = await prisma.project.findMany({
+    select: {
+      id: true,
+      name: true,
+      templateId: true,
+      createdAt: true,
+      updatedAt: true,
+      ...(capabilities.projectActorColumns ? {
+        createdByActorName: true,
+        lastEditedByActorName: true,
+      } : {}),
+      ...(capabilities.projectExportColumns ? {
+        lastExportedAt: true,
+        lastExportedByActorName: true,
+      } : {}),
+    } as any,
     where: {
       userId: session.user!.id!,
       ...(templateId ? { templateId } : {}),
     },
     orderBy: { updatedAt: 'desc' },
-  })
+  }) as unknown as Array<{
+    createdAt: Date
+    createdByActorName?: string | null
+    id: string
+    lastEditedByActorName?: string | null
+    lastExportedAt?: Date | null
+    lastExportedByActorName?: string | null
+    name: string
+    templateId: string
+    updatedAt: Date
+  }>
 
-  try {
-    return NextResponse.json(projects.map(project => ({ ...project, values: JSON.parse(project.values) })))
-  } catch {
-    return NextResponse.json({ error: '데이터 파싱 오류' }, { status: 500 })
-  }
+  return NextResponse.json(projects.map(project => ({
+    ...project,
+    createdByActorName: capabilities.projectActorColumns ? (project.createdByActorName ?? null) : null,
+    lastEditedByActorName: capabilities.projectActorColumns ? (project.lastEditedByActorName ?? null) : null,
+    lastExportedAt: capabilities.projectExportColumns ? (project.lastExportedAt ?? null) : null,
+    lastExportedByActorName: capabilities.projectExportColumns ? (project.lastExportedByActorName ?? null) : null,
+  })))
 }
 
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const capabilities = await getProjectPersistenceCapabilities(prisma)
 
-  const { name, templateId, values, sheetSnapshot } = await req.json()
+  const { name, templateId, values, sheetSnapshot, actorName, actorClientId } = await req.json()
   if (!name?.trim() || !templateId || values === undefined) {
     return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
   }
@@ -53,15 +83,59 @@ export async function POST(req: NextRequest) {
       : { ...sheet, svgContent: hydrated.svgContent, fields: hydrated.fields }
   })
   const normalizedValues = normalizeProjectValues(values, normalizedSheetSnapshot)
+  const actor = normalizeActorIdentity({ actorName, actorClientId })
 
-  const project = await prisma.project.create({
-    data: {
-      name: name.trim(),
+  const project = await prisma.$transaction(async (tx) => {
+    const created = await tx.project.create({
+      data: {
+        name: name.trim(),
+        templateId,
+        userId: session.user!.id!,
+        values: JSON.stringify(normalizedValues),
+        sheetSnapshot: JSON.stringify(normalizedSheetSnapshot),
+        ...(capabilities.projectActorColumns ? {
+          createdByActorName: actor.actorName,
+          createdByActorClientId: actor.actorClientId,
+          lastEditedByActorName: actor.actorName,
+          lastEditedByActorClientId: actor.actorClientId,
+        } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+        templateId: true,
+        ...(capabilities.projectActorColumns ? {
+          createdByActorName: true,
+          lastEditedByActorName: true,
+        } : {}),
+      } as any,
+    }) as unknown as {
+      createdAt: Date
+      createdByActorName?: string | null
+      id: string
+      lastEditedByActorName?: string | null
+      name: string
+      templateId: string
+      updatedAt: Date
+    }
+    await recordProjectActivityIfSupported(tx, capabilities, {
+      action: 'CREATE',
+      actor,
+      projectId: created.id,
+      projectNameSnapshot: created.name,
       templateId,
-      userId: session.user!.id!,
-      values: JSON.stringify(normalizedValues),
-      sheetSnapshot: JSON.stringify(normalizedSheetSnapshot),
-    },
+      metadata: { origin: 'manual-create' },
+    })
+    return created
   })
-  return NextResponse.json({ ...project, values: normalizedValues, sheetSnapshot: normalizedSheetSnapshot }, { status: 201 })
+
+  return NextResponse.json({
+    ...project,
+    createdByActorName: capabilities.projectActorColumns ? (project.createdByActorName ?? null) : null,
+    lastEditedByActorName: capabilities.projectActorColumns ? (project.lastEditedByActorName ?? null) : null,
+    values: normalizedValues,
+    sheetSnapshot: normalizedSheetSnapshot,
+  }, { status: 201 })
 }

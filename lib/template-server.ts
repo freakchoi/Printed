@@ -92,11 +92,13 @@ function buildTemplatePrintSettings(template: {
   printColorProfileMode: string | null
   adobeWorkingCmykPreset: string | null
   customIccPath: string | null
+  sourceRgbIcc?: string | null
 }): TemplatePrintSettings {
   return {
     colorProfileMode: template.printColorProfileMode as TemplatePrintSettings['colorProfileMode'],
     adobeWorkingCmykPreset: template.adobeWorkingCmykPreset as TemplatePrintSettings['adobeWorkingCmykPreset'],
     customIccPath: template.customIccPath,
+    sourceRgbIcc: template.sourceRgbIcc as TemplatePrintSettings['sourceRgbIcc'] ?? null,
   }
 }
 
@@ -135,7 +137,7 @@ export async function buildLegacySheetSummary(template: Pick<Template, 'id' | 's
 }
 
 export async function buildTemplateDetail(
-  template: Pick<Template, 'id' | 'name' | 'category' | 'thumbnail' | 'svgPath' | 'fields' | 'printColorProfileMode' | 'adobeWorkingCmykPreset' | 'customIccPath'> & {
+  template: Pick<Template, 'id' | 'name' | 'category' | 'thumbnail' | 'svgPath' | 'fields' | 'printColorProfileMode' | 'adobeWorkingCmykPreset' | 'customIccPath' | 'sourceRgbIcc'> & {
     sheets?: Pick<TemplateSheet, 'id' | 'name' | 'order' | 'svgPath' | 'fields' | 'width' | 'height' | 'unit' | 'widthPx' | 'heightPx'>[]
   },
 ): Promise<TemplateDetail> {
@@ -181,7 +183,7 @@ export async function buildTemplateDetail(
 }
 
 export async function buildTemplateListItem(
-  template: Pick<Template, 'id' | 'name' | 'category' | 'thumbnail' | 'svgPath' | 'printColorProfileMode' | 'adobeWorkingCmykPreset' | 'customIccPath'> & {
+  template: Pick<Template, 'id' | 'name' | 'category' | 'thumbnail' | 'svgPath' | 'printColorProfileMode' | 'adobeWorkingCmykPreset' | 'customIccPath' | 'sourceRgbIcc'> & {
     sheets?: Pick<TemplateSheet, 'id' | 'name' | 'order' | 'width' | 'height' | 'unit' | 'widthPx' | 'heightPx' | 'svgPath'>[]
   },
 ): Promise<TemplateListItem> {

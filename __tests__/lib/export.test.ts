@@ -152,8 +152,8 @@ describe('getSheetPdfSizePt', () => {
       widthPx: 347.72,
       heightPx: 196.54,
     })).toEqual({
-      widthPt: 260.78740157480314,
-      heightPt: 147.4015748031496,
+      widthPt: 260.787,
+      heightPt: 147.402,
     })
   })
 })
@@ -168,8 +168,8 @@ describe('pdf dimension transport', () => {
       heightPx: 196.54,
     })
 
-    expect((size.widthPt / 72).toFixed(6)).toBe('3.622047')
-    expect((size.heightPt / 72).toFixed(6)).toBe('2.047244')
+    expect((size.widthPt / 72).toFixed(6)).toBe('3.622042')
+    expect((size.heightPt / 72).toFixed(6)).toBe('2.047250')
   })
 })
 
@@ -180,19 +180,35 @@ describe('fixPdfPageBoxes', () => {
     page.setCropBox(0, 0, 612, 792)
 
     const fixed = await fixPdfPageBoxes(Buffer.from(await pdf.save()), [{
-      widthPt: 260.78740157480314,
-      heightPt: 147.4015748031496,
+      widthPt: 260.787,
+      heightPt: 147.402,
     }])
 
-    const reloaded = await PDFDocument.load(new Uint8Array(fixed))
+    const reloaded = await PDFDocument.load(new Uint8Array(fixed), { updateMetadata: false })
     const [fixedPage] = reloaded.getPages()
     const mediaBox = fixedPage.getMediaBox()
     const cropBox = fixedPage.getCropBox()
 
-    expect(mediaBox.width).toBeCloseTo(260.78740157480314, 4)
-    expect(mediaBox.height).toBeCloseTo(147.4015748031496, 4)
-    expect(cropBox.width).toBeCloseTo(260.78740157480314, 4)
-    expect(cropBox.height).toBeCloseTo(147.4015748031496, 4)
+    expect(mediaBox.width).toBeCloseTo(260.787, 4)
+    expect(mediaBox.height).toBeCloseTo(147.402, 4)
+    expect(cropBox.width).toBeCloseTo(260.787, 4)
+    expect(cropBox.height).toBeCloseTo(147.402, 4)
+  })
+
+  it('최종 PDF에 Printed 메타데이터를 기록한다', async () => {
+    const pdf = await PDFDocument.create()
+    pdf.addPage([100, 100])
+
+    const fixed = await fixPdfPageBoxes(Buffer.from(await pdf.save()), [{
+      widthPt: 100,
+      heightPt: 100,
+    }], { title: 'Printed Sample' })
+
+    const reloaded = await PDFDocument.load(new Uint8Array(fixed), { updateMetadata: false })
+
+    expect(reloaded.getTitle()).toBe('Printed Sample')
+    expect(reloaded.getCreator()).toBe('Printed')
+    expect(reloaded.getProducer()).toBe('Printed PDF Engine')
   })
 })
 
@@ -203,17 +219,17 @@ describe('recomposePdfPagesToExactSize', () => {
     sourcePage.drawRectangle({ x: 0, y: 0, width: 261.47, height: 148.08 })
 
     const recomposed = await recomposePdfPagesToExactSize(Buffer.from(await pdf.save()), [{
-      widthPt: 260.78740157480314,
-      heightPt: 147.4015748031496,
+      widthPt: 260.787,
+      heightPt: 147.402,
     }])
 
-    const reloaded = await PDFDocument.load(new Uint8Array(recomposed))
+    const reloaded = await PDFDocument.load(new Uint8Array(recomposed), { updateMetadata: false })
     const [page] = reloaded.getPages()
 
-    expect(page.getMediaBox().width).toBeCloseTo(260.78740157480314, 4)
-    expect(page.getMediaBox().height).toBeCloseTo(147.4015748031496, 4)
-    expect(page.getCropBox().width).toBeCloseTo(260.78740157480314, 4)
-    expect(page.getCropBox().height).toBeCloseTo(147.4015748031496, 4)
+    expect(page.getMediaBox().width).toBeCloseTo(260.787, 4)
+    expect(page.getMediaBox().height).toBeCloseTo(147.402, 4)
+    expect(page.getCropBox().width).toBeCloseTo(260.787, 4)
+    expect(page.getCropBox().height).toBeCloseTo(147.402, 4)
   })
 })
 
@@ -283,7 +299,7 @@ describe('selectRenderableSheets', () => {
 })
 
 describe('resolvePdfRenderStrategy', () => {
-  it('letterSpacing이 있는 대지가 포함되면 raster-fidelity를 선택한다', () => {
+  it('letterSpacing이 있어도 기본적으로 vector를 유지한다', () => {
     const sheets: TemplateSheetDetail[] = [{
       id: 'sheet-1',
       name: '대지 1',
@@ -306,10 +322,10 @@ describe('resolvePdfRenderStrategy', () => {
       }],
     }]
 
-    expect(resolvePdfRenderStrategy(sheets)).toBe('raster-fidelity')
+    expect(resolvePdfRenderStrategy(sheets)).toBe('vector')
   })
 
-  it('svgContent의 stored letter-spacing 메타만 있어도 raster-fidelity를 선택한다', () => {
+  it('stored letter-spacing 메타만 있어도 기본적으로 vector를 유지한다', () => {
     const sheets: TemplateSheetDetail[] = [{
       id: 'sheet-1',
       name: '대지 1',
@@ -332,10 +348,10 @@ describe('resolvePdfRenderStrategy', () => {
       }],
     }]
 
-    expect(resolvePdfRenderStrategy(sheets)).toBe('raster-fidelity')
+    expect(resolvePdfRenderStrategy(sheets)).toBe('vector')
   })
 
-  it('letterSpacing이 없으면 vector를 유지한다', () => {
+  it('지원되지 않는 SVG effect가 있으면 raster-fidelity를 선택한다', () => {
     const sheets: TemplateSheetDetail[] = [{
       id: 'sheet-1',
       name: '대지 1',
@@ -345,7 +361,7 @@ describe('resolvePdfRenderStrategy', () => {
       unit: 'mm',
       widthPx: 347.72,
       heightPx: 196.54,
-      svgContent: '<svg><text id="text-a">A</text></svg>',
+      svgContent: '<svg><defs><filter id="shadow"></filter></defs><rect filter="url(#shadow)" width="10" height="10"/></svg>',
       fields: [{
         id: 'text-a',
         label: 'text-a',
@@ -358,6 +374,6 @@ describe('resolvePdfRenderStrategy', () => {
       }],
     }]
 
-    expect(resolvePdfRenderStrategy(sheets)).toBe('vector')
+    expect(resolvePdfRenderStrategy(sheets)).toBe('raster-fidelity')
   })
 })

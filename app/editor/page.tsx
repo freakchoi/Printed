@@ -3,7 +3,8 @@
 import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { signOut, useSession } from 'next-auth/react'
-import { LogOut } from 'lucide-react'
+import { LogOut, UserRound } from 'lucide-react'
+import { ActorIdentityDialog } from '@/components/editor/ActorIdentityDialog'
 import { LeftSidebar } from '@/components/editor/LeftSidebar'
 import { SVGCanvas } from '@/components/editor/SVGCanvas'
 import { FieldToastEditor } from '@/components/editor/FieldToastEditor'
@@ -12,6 +13,8 @@ import { ProjectHistorySidebar } from '@/components/editor/ProjectHistorySidebar
 import { SaveFileDialog } from '@/components/editor/SaveFileDialog'
 import { ConfirmDiscardDialog } from '@/components/editor/ConfirmDiscardDialog'
 import { ExportDialog } from '@/components/editor/ExportDialog'
+import { StatusToast } from '@/components/editor/StatusToast'
+import { ZoomControl } from '@/components/editor/ZoomControl'
 import {
   type CombinedImageDirection,
   createEmptyValuesForSheets,
@@ -55,6 +58,7 @@ function downloadBlob(blob: Blob, name: string) {
 }
 
 type ExportFormat = 'pdf' | 'png' | 'jpeg'
+const ACTOR_STORAGE_KEY = 'printed.actor-profile.v1'
 
 function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat('ko-KR', {
@@ -71,6 +75,10 @@ type ActiveProjectMeta = {
   name: string
   createdAt: string
   updatedAt: string
+  createdByActorName?: string | null
+  lastEditedByActorName?: string | null
+  lastExportedAt?: string | null
+  lastExportedByActorName?: string | null
 }
 
 type ZoomPreset = 'fit' | 'manual'
@@ -98,6 +106,52 @@ type PendingAction =
       rangeEnd?: number
     }
 
+type ActorProfile = {
+  actorClientId: string
+  actorName: string
+}
+
+type ProjectMutationResponse = {
+  conflict?: boolean
+  createdAt?: string
+  id: string
+  lastEditedByActorName?: string | null
+  lastExportedAt?: string | null
+  lastExportedByActorName?: string | null
+  name: string
+  resolvedName?: string
+  resolvedProjectId?: string
+  sheetSnapshot?: ProjectSheetSnapshot[]
+  updatedAt?: string
+  values?: ProjectValuesBySheet
+}
+
+type ToastState = {
+  id: number
+  kind: 'error' | 'success'
+  message: string
+}
+
+function buildProjectSummaryFromMeta(meta: ActiveProjectMeta, templateId: string): ProjectSummary {
+  return {
+    id: meta.id,
+    name: meta.name,
+    templateId,
+    createdAt: meta.createdAt,
+    updatedAt: meta.updatedAt,
+    createdByActorName: meta.createdByActorName ?? null,
+    lastEditedByActorName: meta.lastEditedByActorName ?? null,
+    lastExportedAt: meta.lastExportedAt ?? null,
+    lastExportedByActorName: meta.lastExportedByActorName ?? null,
+  }
+}
+
+function upsertProjectSummary(projects: ProjectSummary[], summary: ProjectSummary) {
+  const nextProjects = projects.filter(project => project.id !== summary.id)
+  nextProjects.unshift(summary)
+  return nextProjects.sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
+}
+
 export default function EditorPage() {
   const { data: session } = useSession()
   const [templates, setTemplates] = useState<TemplateListItem[]>([])
@@ -107,6 +161,8 @@ export default function EditorPage() {
   const [templatesError, setTemplatesError] = useState<string | null>(null)
   const [isTemplateLoading, setIsTemplateLoading] = useState(false)
   const [templateLoadError, setTemplateLoadError] = useState<string | null>(null)
+  const [isProjectsLoading, setIsProjectsLoading] = useState(false)
+  const [projectsError, setProjectsError] = useState<string | null>(null)
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [activeProjectMeta, setActiveProjectMeta] = useState<ActiveProjectMeta | null>(null)
@@ -125,10 +181,16 @@ export default function EditorPage() {
   const [hasCompletedInitialSave, setHasCompletedInitialSave] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [actorProfile, setActorProfile] = useState<ActorProfile | null>(null)
+  const [actorDraftName, setActorDraftName] = useState('')
+  const [actorDialogError, setActorDialogError] = useState<string | null>(null)
+  const [isActorDialogOpen, setIsActorDialogOpen] = useState(false)
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
+  const [toast, setToast] = useState<ToastState | null>(null)
   const [exportFormat, setExportFormat] = useState<'pdf' | 'png' | 'jpeg'>('pdf')
   const [exportFileName, setExportFileName] = useState('')
   const [selectionMode, setSelectionMode] = useState<ImageSelectionMode>('all')
@@ -139,12 +201,14 @@ export default function EditorPage() {
   const [rangeEnd, setRangeEnd] = useState(1)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false)
+  const [deleteConfirmProjectId, setDeleteConfirmProjectId] = useState<string | null>(null)
   const [zoomScale, setZoomScale] = useState(1)
   const [zoomPreset, setZoomPreset] = useState<ZoomPreset>('fit')
   const [fitRequestKey, setFitRequestKey] = useState(0)
   const [maxZoomScale, setMaxZoomScale] = useState(8)
   const projectsRequestRef = useRef(0)
   const textEditSessionRef = useRef<{ fieldId: string; sheetId: string } | null>(null)
+  const toastTimerRef = useRef<number | null>(null)
   const cloneProjectSheets = useCallback((sheets: ProjectSheetSnapshot[]) => (
     sheets.map(sheet => ({
       ...sheet,
@@ -169,6 +233,106 @@ export default function EditorPage() {
     values: cloneProjectValues(state.values),
   }), [cloneProjectSheets, cloneProjectValues])
 
+  const actorName = actorProfile?.actorName ?? ''
+  const actorClientId = actorProfile?.actorClientId ?? ''
+
+  const showToast = useCallback((message: string, kind: ToastState['kind'] = 'error') => {
+    const nextToast = {
+      id: Date.now(),
+      kind,
+      message,
+    }
+    setToast(nextToast)
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current)
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(current => current?.id === nextToast.id ? null : current)
+      toastTimerRef.current = null
+    }, kind === 'error' ? 4200 : 2600)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!exportError) return
+    showToast(exportError, 'error')
+  }, [exportError, showToast])
+
+  const saveActorProfile = useCallback((nextName: string) => {
+    const trimmedName = nextName.trim()
+    if (!trimmedName) {
+      setActorDialogError('작업자 이름을 입력해주세요.')
+      return false
+    }
+
+    const nextProfile = {
+      actorName: trimmedName,
+      actorClientId: actorClientId || crypto.randomUUID(),
+    }
+
+    localStorage.setItem(ACTOR_STORAGE_KEY, JSON.stringify(nextProfile))
+    setActorProfile(nextProfile)
+    setActorDraftName(trimmedName)
+    setActorDialogError(null)
+    setIsActorDialogOpen(false)
+    return true
+  }, [actorClientId])
+
+  const ensureActorProfile = useCallback(() => {
+    if (actorName.trim()) return true
+    setActorDraftName(actorDraftName || actorName)
+    setActorDialogError('저장과 내보내기 전에 작업자 이름을 먼저 설정해주세요.')
+    setIsActorDialogOpen(true)
+    return false
+  }, [actorDraftName, actorName])
+
+  useEffect(() => {
+    const storedValue = localStorage.getItem(ACTOR_STORAGE_KEY)
+
+    if (!storedValue) {
+      const fallbackProfile = {
+        actorClientId: crypto.randomUUID(),
+        actorName: '',
+      }
+      setActorProfile(fallbackProfile)
+      setActorDraftName('')
+      setIsActorDialogOpen(true)
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(storedValue) as Partial<ActorProfile>
+      const nextProfile = {
+        actorClientId: parsed.actorClientId?.trim() || crypto.randomUUID(),
+        actorName: parsed.actorName?.trim() || '',
+      }
+      setActorProfile(nextProfile)
+      setActorDraftName(nextProfile.actorName)
+
+      if (!nextProfile.actorName) {
+        setIsActorDialogOpen(true)
+      } else if (parsed.actorClientId?.trim() !== nextProfile.actorClientId || parsed.actorName?.trim() !== nextProfile.actorName) {
+        localStorage.setItem(ACTOR_STORAGE_KEY, JSON.stringify(nextProfile))
+      }
+    } catch {
+      const fallbackProfile = {
+        actorClientId: crypto.randomUUID(),
+        actorName: '',
+      }
+      setActorProfile(fallbackProfile)
+      setActorDraftName('')
+      setIsActorDialogOpen(true)
+      localStorage.setItem(ACTOR_STORAGE_KEY, JSON.stringify(fallbackProfile))
+    }
+  }, [])
+
   const loadTemplates = useCallback(async () => {
     setIsTemplatesLoading(true)
     setTemplatesError(null)
@@ -190,14 +354,28 @@ export default function EditorPage() {
   const loadProjects = useCallback(async (templateId: string) => {
     const requestId = projectsRequestRef.current + 1
     projectsRequestRef.current = requestId
-    const res = await fetch(`/api/projects?templateId=${templateId}`)
-    if (!res.ok) {
-      const data = await res.json().catch(() => null)
-      throw new Error(data?.error ?? '작업 파일을 불러오지 못했습니다.')
+    setIsProjectsLoading(true)
+    setProjectsError(null)
+    try {
+      const res = await fetch(`/api/projects?templateId=${templateId}`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error ?? '작업 파일을 불러오지 못했습니다.')
+      }
+      const data = await res.json() as ProjectSummary[]
+      if (projectsRequestRef.current !== requestId) return
+      setProjects(data)
+    } catch (error) {
+      if (projectsRequestRef.current === requestId) {
+        setProjects([])
+        setProjectsError(error instanceof Error ? error.message : '작업 파일을 불러오지 못했습니다.')
+      }
+      throw error
+    } finally {
+      if (projectsRequestRef.current === requestId) {
+        setIsProjectsLoading(false)
+      }
     }
-    const data = await res.json() as ProjectSummary[]
-    if (projectsRequestRef.current !== requestId) return
-    setProjects(data)
   }, [])
 
   const prepareTemplatePreview = useCallback((detail: TemplateDetail) => {
@@ -218,6 +396,8 @@ export default function EditorPage() {
     textEditSessionRef.current = null
     setSaveError(null)
     setExportError(null)
+    setProjectsError(null)
+    setWorkspaceNotice(null)
     setProjectTimestampMode('saved')
     setHasCompletedInitialSave(false)
     setZoomPreset('fit')
@@ -233,6 +413,8 @@ export default function EditorPage() {
       projectsRequestRef.current += 1
       setTemplateDetail(null)
       setProjects([])
+      setIsProjectsLoading(false)
+      setProjectsError(null)
       setActiveProjectId(null)
       setActiveProjectMeta(null)
       setPendingProjectName('')
@@ -252,10 +434,7 @@ export default function EditorPage() {
       setTemplateLoadError(null)
 
       try {
-        const [templateRes] = await Promise.all([
-          fetch(`/api/templates/${selectedTemplateId}`),
-          loadProjects(selectedTemplateId),
-        ])
+        const templateRes = await fetch(`/api/templates/${selectedTemplateId}`)
 
         if (!templateRes.ok) {
           const data = await templateRes.json().catch(() => null)
@@ -270,6 +449,11 @@ export default function EditorPage() {
         if (cancelled) return
         setTemplateDetail(detail)
         prepareTemplatePreview(detail)
+        void loadProjects(selectedTemplateId).catch(() => {
+          if (!cancelled) {
+            setProjects([])
+          }
+        })
       } catch (error) {
         if (cancelled) return
         setTemplateDetail(null)
@@ -406,7 +590,11 @@ export default function EditorPage() {
   }, [cloneProjectSheets, cloneProjectValues, resolveSelectionAfterSheetsChange])
 
   const loadProjectIntoWorkspace = useCallback((project: {
+    createdByActorName?: string | null
     id: string
+    lastEditedByActorName?: string | null
+    lastExportedAt?: string | null
+    lastExportedByActorName?: string | null
     name: string
     createdAt: string
     updatedAt: string
@@ -423,6 +611,10 @@ export default function EditorPage() {
       name: project.name,
       createdAt: String(project.createdAt),
       updatedAt: String(project.updatedAt),
+      createdByActorName: project.createdByActorName ?? null,
+      lastEditedByActorName: project.lastEditedByActorName ?? null,
+      lastExportedAt: project.lastExportedAt ?? null,
+      lastExportedByActorName: project.lastExportedByActorName ?? null,
     })
     setPendingProjectName(project.name)
     setIsEditingProjectName(false)
@@ -439,7 +631,156 @@ export default function EditorPage() {
     textEditSessionRef.current = null
     setSaveError(null)
     setExportError(null)
+    setProjectsError(null)
+    setWorkspaceNotice(null)
   }, [])
+
+  const revalidateProjects = useCallback(() => {
+    if (!selectedTemplateId) return
+    void loadProjects(selectedTemplateId).catch(error => {
+      setProjectsError(error instanceof Error ? error.message : '작업 파일을 다시 불러오지 못했습니다.')
+    })
+  }, [loadProjects, selectedTemplateId])
+
+  const saveProjectState = useCallback(async ({
+    desiredName,
+  }: {
+    desiredName?: string
+  }) => {
+    if (!templateDetail) {
+      throw new Error('템플릿을 먼저 선택해주세요.')
+    }
+    if (!ensureActorProfile()) {
+      throw new Error('작업자 이름을 먼저 설정해주세요.')
+    }
+
+    const trimmedName = (desiredName ?? pendingProjectName).trim()
+    if (!trimmedName) {
+      throw new Error('파일 이름을 입력해주세요.')
+    }
+
+    setIsSaving(true)
+    setSaveError(null)
+
+    try {
+      if (!activeProjectId) {
+        const createRes = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            actorClientId,
+            actorName,
+            name: trimmedName,
+            sheetSnapshot: projectSheets.length > 0 ? projectSheets : undefined,
+            templateId: templateDetail.id,
+            values,
+          }),
+        })
+
+        if (!createRes.ok) {
+          const data = await createRes.json().catch(() => null)
+          throw new Error(data?.error ?? '파일을 저장하지 못했습니다.')
+        }
+
+        const createdProject = await createRes.json() as ProjectMutationResponse
+        const loadedProject = {
+          ...createdProject,
+          createdAt: createdProject.createdAt ?? new Date().toISOString(),
+          createdByActorName: actorName,
+          lastEditedByActorName: createdProject.lastEditedByActorName ?? actorName,
+          sheetSnapshot: createdProject.sheetSnapshot ?? projectSheets,
+          template: templateDetail,
+          updatedAt: createdProject.updatedAt ?? new Date().toISOString(),
+          values: createdProject.values ?? values,
+        }
+
+        loadProjectIntoWorkspace(loadedProject, { hasCompletedInitialSave: true })
+        setProjectTimestampMode('saved')
+        setProjects(prev => upsertProjectSummary(prev, {
+          id: createdProject.id,
+          name: createdProject.name,
+          templateId: templateDetail.id,
+          createdAt: createdProject.createdAt ?? new Date().toISOString(),
+          updatedAt: createdProject.updatedAt ?? new Date().toISOString(),
+          createdByActorName: actorName,
+          lastEditedByActorName: createdProject.lastEditedByActorName ?? actorName,
+          lastExportedAt: null,
+          lastExportedByActorName: null,
+        }))
+        revalidateProjects()
+        return createdProject.id
+      }
+
+      const saveRes = await fetch(`/api/projects/${activeProjectId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actorClientId,
+          actorName,
+          baseUpdatedAt: activeProjectMeta?.updatedAt,
+          name: trimmedName,
+          sheetSnapshot: projectSheets,
+          values,
+        }),
+      })
+
+      if (!saveRes.ok) {
+        const data = await saveRes.json().catch(() => null)
+        throw new Error(data?.error ?? '파일을 저장하지 못했습니다.')
+      }
+
+      const payload = await saveRes.json() as ProjectMutationResponse
+      const nextProjectId = payload.resolvedProjectId ?? payload.id
+      const nextName = payload.resolvedName ?? payload.name ?? trimmedName
+      const nextUpdatedAt = payload.updatedAt ?? new Date().toISOString()
+      const nextCreatedAt = payload.createdAt ?? activeProjectMeta?.createdAt ?? nextUpdatedAt
+      const nextMeta: ActiveProjectMeta = {
+        id: nextProjectId,
+        name: nextName,
+        createdAt: nextCreatedAt,
+        updatedAt: nextUpdatedAt,
+        createdByActorName: activeProjectMeta?.createdByActorName ?? actorName,
+        lastEditedByActorName: payload.lastEditedByActorName ?? actorName,
+        lastExportedAt: activeProjectMeta?.lastExportedAt ?? null,
+        lastExportedByActorName: activeProjectMeta?.lastExportedByActorName ?? null,
+      }
+
+      setActiveProjectId(nextProjectId)
+      setActiveProjectMeta(nextMeta)
+      setPendingProjectName(nextName)
+      setIsEditingProjectName(false)
+      setBaselineSnapshot(makeSnapshot(nextName, values, projectSheets))
+      setUndoStack([])
+      setHasCompletedInitialSave(true)
+      setProjectTimestampMode('saved')
+      textEditSessionRef.current = null
+      setWorkspaceNotice(payload.conflict
+        ? `다른 작업자가 먼저 저장해 "${nextName}" 자동 복구본으로 전환했습니다.`
+        : null)
+      setProjects(prev => upsertProjectSummary(prev, buildProjectSummaryFromMeta(nextMeta, templateDetail.id)))
+      revalidateProjects()
+      return nextProjectId
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '파일을 저장하지 못했습니다.'
+      setSaveError(message)
+      showToast(message, 'error')
+      throw error
+    } finally {
+      setIsSaving(false)
+    }
+  }, [
+    activeProjectId,
+    activeProjectMeta,
+    actorClientId,
+    actorName,
+    ensureActorProfile,
+    loadProjectIntoWorkspace,
+    pendingProjectName,
+    projectSheets,
+    revalidateProjects,
+    templateDetail,
+    values,
+  ])
 
   const performExport = useCallback(async ({
     combinedDirection: nextCombinedDirection,
@@ -466,6 +807,9 @@ export default function EditorPage() {
     if (!projectId) {
       throw new Error('내보내기 전에 작업 파일을 먼저 만들어주세요.')
     }
+    if (!ensureActorProfile()) {
+      throw new Error('작업자 이름을 먼저 설정해주세요.')
+    }
 
     setIsExporting(true)
     setExportError(null)
@@ -483,6 +827,8 @@ export default function EditorPage() {
           rangeStart: nextRangeStart,
           rasterMode: nextRasterMode,
           selectionMode: nextSelectionMode,
+          actorClientId,
+          actorName,
           values,
         }),
       })
@@ -496,20 +842,40 @@ export default function EditorPage() {
       const fallbackName = `${fileName}.${format === 'jpeg' ? 'jpg' : format}`
       const resolvedName = getDownloadName(res.headers.get('content-disposition'), fallbackName)
       downloadBlob(blob, resolvedName)
+      const exportedAt = new Date().toISOString()
+      setWorkspaceNotice(`${fileName} ${format === 'pdf' ? 'PDF' : format === 'png' ? 'PNG' : 'JPG'} 파일을 저장했습니다.`)
+      if (activeProjectMeta && activeProjectMeta.id === projectId) {
+        const nextMeta = {
+          ...activeProjectMeta,
+          lastExportedAt: exportedAt,
+          lastExportedByActorName: actorName || activeProjectMeta.lastExportedByActorName || null,
+        }
+        setActiveProjectMeta(nextMeta)
+        if (templateDetail) {
+          setProjects(current => upsertProjectSummary(current, buildProjectSummaryFromMeta(nextMeta, templateDetail.id)))
+        }
+      }
+      revalidateProjects()
     } catch (error) {
       setExportError(error instanceof Error ? error.message : '내보내기에 실패했습니다.')
       throw error
     } finally {
       setIsExporting(false)
     }
-  }, [activeProjectId, selectedSheet?.id, values])
+  }, [activeProjectId, actorClientId, actorName, ensureActorProfile, revalidateProjects, templateDetail, values])
 
   const createProjectImmediately = useCallback(async (detail: TemplateDetail) => {
+    if (!ensureActorProfile()) {
+      throw new Error('작업자 이름을 먼저 설정해주세요.')
+    }
+
     const nextValues = createEmptyValuesForSheets(detail.sheets)
     const res = await fetch('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        actorClientId,
+        actorName,
         name: '새 작업',
         templateId: detail.id,
         values: nextValues,
@@ -521,24 +887,33 @@ export default function EditorPage() {
       throw new Error(data?.error ?? '새 작업을 만들지 못했습니다.')
     }
 
-    const project = await res.json() as {
-      id: string
-      name: string
-      createdAt: string
-      sheetSnapshot: ProjectSheetSnapshot[]
-      updatedAt: string
-      values: ProjectValuesBySheet
-    }
-
-    await loadProjects(detail.id)
+    const project = await res.json() as ProjectMutationResponse
     loadProjectIntoWorkspace({
       ...project,
+      createdAt: project.createdAt ?? new Date().toISOString(),
+      createdByActorName: actorName,
+      lastEditedByActorName: project.lastEditedByActorName ?? actorName,
+      sheetSnapshot: project.sheetSnapshot ?? [],
       template: detail,
+      updatedAt: project.updatedAt ?? new Date().toISOString(),
+      values: project.values ?? nextValues,
     }, { hasCompletedInitialSave: false })
+    setProjects(prev => upsertProjectSummary(prev, {
+      id: project.id,
+      name: project.name,
+      templateId: detail.id,
+      createdAt: project.createdAt ?? new Date().toISOString(),
+      updatedAt: project.updatedAt ?? new Date().toISOString(),
+      createdByActorName: actorName,
+      lastEditedByActorName: project.lastEditedByActorName ?? actorName,
+      lastExportedAt: null,
+      lastExportedByActorName: null,
+    }))
+    revalidateProjects()
     setProjectTimestampMode('created')
     setZoomPreset('fit')
     setFitRequestKey(prev => prev + 1)
-  }, [loadProjectIntoWorkspace, loadProjects])
+  }, [actorClientId, actorName, ensureActorProfile, loadProjectIntoWorkspace, revalidateProjects])
 
   const executePendingAction = useCallback(async (action: PendingAction, savedProjectId?: string | null) => {
     switch (action.type) {
@@ -556,7 +931,11 @@ export default function EditorPage() {
           throw new Error(data?.error ?? '작업 파일을 열지 못했습니다.')
         }
         const project = await res.json() as {
+          createdByActorName?: string | null
           id: string
+          lastEditedByActorName?: string | null
+          lastExportedAt?: string | null
+          lastExportedByActorName?: string | null
           name: string
           createdAt: string
           sheetSnapshot: ProjectSheetSnapshot[]
@@ -576,14 +955,20 @@ export default function EditorPage() {
         }
         return
       case 'delete-project': {
-        const res = await fetch(`/api/projects/${action.projectId}`, { method: 'DELETE' })
+        const res = await fetch(`/api/projects/${action.projectId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            actorClientId,
+            actorName,
+          }),
+        })
         if (!res.ok) {
           const data = await res.json().catch(() => null)
           throw new Error(data?.error ?? '파일을 삭제하지 못했습니다.')
         }
-        if (selectedTemplateId) {
-          await loadProjects(selectedTemplateId)
-        }
+        setProjects(prev => prev.filter(project => project.id !== action.projectId))
+        revalidateProjects()
         if (activeProjectId === action.projectId && templateDetail) {
           prepareTemplatePreview(templateDetail)
         }
@@ -603,7 +988,7 @@ export default function EditorPage() {
         })
         return
     }
-  }, [activeProjectId, createProjectImmediately, loadProjectIntoWorkspace, loadProjects, performExport, prepareTemplatePreview, selectedTemplateId, templateDetail])
+  }, [activeProjectId, actorClientId, actorName, createProjectImmediately, loadProjectIntoWorkspace, performExport, prepareTemplatePreview, revalidateProjects, templateDetail])
 
   const requestAction = useCallback((action: PendingAction) => {
     if (isDirty) {
@@ -613,9 +998,15 @@ export default function EditorPage() {
     }
 
     void executePendingAction(action).catch(error => {
-      setExportError(error instanceof Error ? error.message : '요청을 처리하지 못했습니다.')
+      const message = error instanceof Error ? error.message : '요청을 처리하지 못했습니다.'
+      if (action.type === 'export') {
+        setExportError(message)
+      } else {
+        setSaveError(message)
+        showToast(message, 'error')
+      }
     })
-  }, [executePendingAction, isDirty])
+  }, [executePendingAction, isDirty, showToast])
 
   const handleSelect = useCallback((templateId: string) => {
     requestAction({ type: 'select-template', templateId })
@@ -627,9 +1018,8 @@ export default function EditorPage() {
   }, [loadTemplates, requestAction])
 
   const handleDeleteProject = useCallback((projectId: string) => {
-    if (!window.confirm('이 작업 파일을 삭제하시겠습니까?')) return
-    requestAction({ type: 'delete-project', projectId })
-  }, [requestAction])
+    setDeleteConfirmProjectId(projectId)
+  }, [])
 
   const handleCreateProject = useCallback(() => {
     requestAction({ type: 'create-project' })
@@ -640,8 +1030,16 @@ export default function EditorPage() {
   }, [requestAction])
 
   const handleDuplicateProject = useCallback(async (projectId: string) => {
+    if (!ensureActorProfile()) return
     try {
-      const res = await fetch(`/api/projects/${projectId}/duplicate`, { method: 'POST' })
+      const res = await fetch(`/api/projects/${projectId}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actorClientId,
+          actorName,
+        }),
+      })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
         throw new Error(data?.error ?? '작업 파일을 복제하지 못했습니다.')
@@ -650,22 +1048,37 @@ export default function EditorPage() {
       const project = await res.json() as {
         id: string
         name: string
+        createdByActorName?: string | null
         createdAt: string
+        lastEditedByActorName?: string | null
         updatedAt: string
         sheetSnapshot: ProjectSheetSnapshot[]
         values: ProjectValuesBySheet
         template: TemplateDetail
       }
 
-      await loadProjects(project.template.id)
       loadProjectIntoWorkspace(project)
+      setProjects(prev => upsertProjectSummary(prev, {
+        id: project.id,
+        name: project.name,
+        templateId: project.template.id,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        createdByActorName: project.createdByActorName ?? actorName,
+        lastEditedByActorName: project.lastEditedByActorName ?? actorName,
+        lastExportedAt: null,
+        lastExportedByActorName: null,
+      }))
+      revalidateProjects()
       setProjectTimestampMode('saved')
       setZoomPreset('fit')
       setFitRequestKey(prev => prev + 1)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : '작업 파일을 복제하지 못했습니다.')
+      const message = error instanceof Error ? error.message : '작업 파일을 복제하지 못했습니다.'
+      setSaveError(message)
+      showToast(message, 'error')
     }
-  }, [loadProjectIntoWorkspace, loadProjects])
+  }, [actorClientId, actorName, ensureActorProfile, loadProjectIntoWorkspace, revalidateProjects, showToast])
 
   const handleSelectField = useCallback((sheetId: string, fieldId: string) => {
     textEditSessionRef.current = null
@@ -747,7 +1160,7 @@ export default function EditorPage() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => null)
-      window.alert(data?.error ?? '대지 이름을 바꾸지 못했습니다.')
+      showToast(data?.error ?? '대지 이름을 바꾸지 못했습니다.')
       return
     }
 
@@ -783,49 +1196,8 @@ export default function EditorPage() {
   }, [activeProjectMeta?.name])
 
   const handleSaveConfirm = useCallback(async () => {
-    if (!templateDetail || !activeProjectId) return
-
-    const trimmedName = pendingProjectName.trim()
-    if (!trimmedName) {
-      setSaveError('파일 이름을 입력해주세요.')
-      return
-    }
-
-    setIsSaving(true)
-    setSaveError(null)
-
     try {
-      let nextProjectId = activeProjectId
-      const res = await fetch(`/api/projects/${activeProjectId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmedName, values, sheetSnapshot: projectSheets }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        throw new Error(data?.error ?? '파일을 저장하지 못했습니다.')
-      }
-      const payload = await res.json().catch(() => ({ ok: true })) as { updatedAt?: string; name?: string }
-      const nextMeta: ActiveProjectMeta = activeProjectMeta ? {
-        ...activeProjectMeta,
-        name: payload.name ?? trimmedName,
-        updatedAt: payload.updatedAt ?? new Date().toISOString(),
-      } : {
-        id: activeProjectId,
-        name: payload.name ?? trimmedName,
-        createdAt: new Date().toISOString(),
-        updatedAt: payload.updatedAt ?? new Date().toISOString(),
-      }
-      setProjectTimestampMode('saved')
-
-      await loadProjects(templateDetail.id)
-      setActiveProjectMeta(nextMeta)
-      setPendingProjectName(trimmedName)
-      setIsEditingProjectName(false)
-      setBaselineSnapshot(makeSnapshot(trimmedName, values, projectSheets))
-      setUndoStack([])
-      setHasCompletedInitialSave(true)
-      textEditSessionRef.current = null
+      const nextProjectId = await saveProjectState({})
       setIsSaveDialogOpen(false)
       setIsDiscardDialogOpen(false)
 
@@ -836,10 +1208,8 @@ export default function EditorPage() {
       }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : '파일을 저장하지 못했습니다.')
-    } finally {
-      setIsSaving(false)
     }
-  }, [activeProjectId, activeProjectMeta, executePendingAction, loadProjects, pendingAction, pendingProjectName, projectSheets, templateDetail, values])
+  }, [executePendingAction, pendingAction, saveProjectState])
 
   const handleOpenExportDialog = useCallback(() => {
     setExportFileName((pendingProjectName.trim() || activeProjectMeta?.name || '새 작업'))
@@ -921,6 +1291,10 @@ export default function EditorPage() {
 
   const handleConfirmExport = useCallback(async () => {
     const resolvedFileName = exportFileName.trim()
+    if (!resolvedFileName) {
+      setExportError('파일 이름을 입력해주세요.')
+      return
+    }
 
     const payload: PendingAction = {
       type: 'export',
@@ -936,11 +1310,12 @@ export default function EditorPage() {
 
     setIsExportDialogOpen(false)
     try {
-      await executePendingAction(payload, activeProjectId)
+      const savedProjectId = await saveProjectState({ desiredName: resolvedFileName })
+      await executePendingAction(payload, savedProjectId)
     } catch (error) {
       setExportError(error instanceof Error ? error.message : '내보내기에 실패했습니다.')
     }
-  }, [activeProjectId, combinedDirection, executePendingAction, exportFileName, exportFormat, imageMode, rangeEnd, rangeStart, rasterMode, selectionMode])
+  }, [combinedDirection, executePendingAction, exportFileName, exportFormat, imageMode, rangeEnd, rangeStart, rasterMode, saveProjectState, selectionMode])
 
   const selectedTemplate = useMemo(
     () => templates.find(template => template.id === selectedTemplateId) ?? null,
@@ -980,6 +1355,11 @@ export default function EditorPage() {
     setZoomScale(scale)
   }, [])
 
+  const handleZoomSet = useCallback((scale: number) => {
+    setZoomPreset('manual')
+    setZoomScale(clampZoom(scale))
+  }, [clampZoom])
+
   useEffect(() => {
     setZoomScale(prev => Math.min(maxZoomScale, Math.max(0.1, prev)))
   }, [maxZoomScale])
@@ -1001,11 +1381,17 @@ export default function EditorPage() {
     const timestampValue = projectTimestampMode === 'created'
       ? activeProjectMeta?.createdAt
       : activeProjectMeta?.updatedAt
+    const actorSummary = [
+      activeProjectMeta?.lastEditedByActorName ? `저장 ${activeProjectMeta.lastEditedByActorName}` : null,
+      activeProjectMeta?.lastExportedByActorName ? `내보내기 ${activeProjectMeta.lastExportedByActorName}` : null,
+    ].filter(Boolean).join(' · ')
 
     return {
       title: pendingProjectName || activeProjectMeta?.name || '새 작업',
       timestampLabel: projectTimestampMode === 'created' ? '생성 일시' : '저장 일시',
-      timestampValue: timestampValue ? formatTimestamp(timestampValue) : null,
+      timestampValue: timestampValue
+        ? `${formatTimestamp(timestampValue)}${actorSummary ? ` · ${actorSummary}` : ''}`
+        : null,
     }
   }, [activeProjectMeta, pendingProjectName, projectTimestampMode, templateDetail?.name, workspaceMode])
 
@@ -1139,7 +1525,7 @@ export default function EditorPage() {
 
     if (targetSheetIds.length === 0) return
     if (projectSheets.length - targetSheetIds.length < 1) {
-      window.alert('최소 1개의 대지는 남아 있어야 합니다.')
+      showToast('최소 1개의 대지는 남아 있어야 합니다.')
       return
     }
 
@@ -1213,10 +1599,29 @@ export default function EditorPage() {
   }, [applyUndoState, copiedSheetIds, handleDuplicateSelectedSheets, selectedSheetIds, workspaceMode])
 
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b bg-card/95 px-4 backdrop-blur-sm">
+    <div className="motion-fade-in flex h-screen flex-col bg-background">
+      <header className="motion-surface flex h-16 shrink-0 items-center justify-between gap-4 border-b bg-card/95 px-4 backdrop-blur-sm">
         <Image src="/logo.svg" alt="Printed logo" width={676} height={69} priority className="h-5 w-auto shrink-0" />
+        <div className="min-w-0 flex-1">
+          {workspaceNotice ? (
+            <div className="motion-fade-in mx-auto w-fit max-w-full rounded-full border border-primary/20 bg-primary/8 px-3 py-1 text-xs font-medium text-primary">
+              <span className="block truncate">{workspaceNotice}</span>
+            </div>
+          ) : null}
+        </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="editor-hover-lift editor-press inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-foreground"
+            onClick={() => {
+              setActorDraftName(actorName)
+              setActorDialogError(null)
+              setIsActorDialogOpen(true)
+            }}
+          >
+            <UserRound size={14} className="text-primary" />
+            <span className="max-w-28 truncate">{actorName || '작업자 설정'}</span>
+          </button>
           <ThemeToggle />
           <button type="button" className="rounded-md p-2 transition-colors hover:bg-accent" onClick={() => signOut()} aria-label="로그아웃">
             <LogOut size={16} />
@@ -1224,7 +1629,7 @@ export default function EditorPage() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="motion-fade-in flex min-h-0 flex-1 overflow-hidden">
         <LeftSidebar
           canManageTemplates={canManageTemplates}
           onDeleteTemplate={handleDeleteTemplate}
@@ -1242,14 +1647,17 @@ export default function EditorPage() {
           <>
             <ProjectHistorySidebar
               activeProjectId={activeProjectId}
+              error={projectsError}
               isDirty={isDirty}
+              isLoading={isProjectsLoading}
+              onRetry={selectedTemplateId ? () => void loadProjects(selectedTemplateId) : undefined}
               projects={projects}
               selectedTemplateName={selectedTemplate?.name ?? templateDetail?.name ?? null}
               onCreateProject={handleCreateProject}
               onDuplicateProject={handleDuplicateProject}
               onOpenProject={handleOpenProject}
             />
-            <div className="relative min-w-0 flex-1">
+            <div className="motion-fade-in relative min-w-0 flex-1">
               <SVGCanvas
                 activeSheetId={activeSheetId ?? selectedSheet?.id ?? null}
                 error={templateLoadError}
@@ -1306,7 +1714,7 @@ export default function EditorPage() {
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-muted-foreground">
+          <div className="motion-fade-up flex flex-1 items-center justify-center text-muted-foreground">
             좌측에서 템플릿을 선택해주세요
           </div>
         )}
@@ -1364,13 +1772,83 @@ export default function EditorPage() {
           setIsDiscardDialogOpen(false)
           if (action) {
             void executePendingAction(action).catch(error => {
-              setExportError(error instanceof Error ? error.message : '요청을 처리하지 못했습니다.')
+              const message = error instanceof Error ? error.message : '요청을 처리하지 못했습니다.'
+              if (action.type === 'export') {
+                setExportError(message)
+              } else {
+                setSaveError(message)
+                showToast(message, 'error')
+              }
             })
           }
         }}
         onSaveFirst={() => {
           setIsDiscardDialogOpen(false)
           setIsSaveDialogOpen(true)
+        }}
+      />
+
+      {deleteConfirmProjectId ? (
+        <div className="motion-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+          <div className="motion-modal-sheet motion-modal-card w-full max-w-md rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
+            <div className="border-b px-6 py-5">
+              <p className="text-lg font-semibold tracking-tight text-foreground">작업 파일 삭제</p>
+              <p className="mt-1 text-sm text-muted-foreground">이 작업 파일을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.</p>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 border-t px-6 py-5">
+              <button type="button" className="editor-press inline-flex h-9 items-center rounded-md border border-input bg-background px-4 text-sm font-medium shadow-sm hover:bg-accent" onClick={() => setDeleteConfirmProjectId(null)}>취소</button>
+              <button
+                type="button"
+                className="editor-press inline-flex h-9 items-center rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground shadow-sm hover:bg-destructive/90"
+                onClick={() => {
+                  const id = deleteConfirmProjectId
+                  setDeleteConfirmProjectId(null)
+                  requestAction({ type: 'delete-project', projectId: id })
+                }}
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="fixed right-4 top-20 z-[70] flex flex-col items-end gap-2">
+        <ZoomControl
+          maxZoomScale={maxZoomScale}
+          zoomScale={zoomScale}
+          zoomLabel={zoomLabel}
+          onZoomFit={handleZoomFit}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onZoomSet={handleZoomSet}
+        />
+        <StatusToast
+          isVisible={Boolean(toast?.message)}
+          kind={toast?.kind ?? 'error'}
+          message={toast?.message ?? ''}
+          onDismiss={() => setToast(null)}
+        />
+      </div>
+
+      <ActorIdentityDialog
+        draftName={actorDraftName}
+        error={actorDialogError}
+        isOpen={isActorDialogOpen}
+        isRequired={!actorName.trim()}
+        onClose={() => {
+          setActorDialogError(null)
+          setActorDraftName(actorName)
+          setIsActorDialogOpen(false)
+        }}
+        onConfirm={() => {
+          saveActorProfile(actorDraftName)
+        }}
+        onDraftNameChange={(nextName) => {
+          setActorDraftName(nextName)
+          if (actorDialogError) {
+            setActorDialogError(null)
+          }
         }}
       />
     </div>

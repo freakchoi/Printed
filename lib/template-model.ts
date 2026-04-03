@@ -1,3 +1,5 @@
+const VALID_SHEET_UNITS = ['px', 'mm', 'cm', 'in', 'pt', 'pc'] as const
+
 export type FieldAlignment = 'left' | 'center' | 'right'
 export type FieldWrapMode = 'preserve' | 'wrap'
 export type FieldSourceType = 'explicit-id' | 'generated-id'
@@ -7,6 +9,7 @@ export type ImageSelectionMode = 'all' | 'range'
 export type ImageOutputMode = 'combined' | 'separate'
 export type CombinedImageDirection = 'horizontal' | 'vertical'
 export type PrintColorProfileMode = 'adobe-working-cmyk' | 'custom-icc'
+export type SourceRgbIcc = 'sRGB' | 'AdobeRGB'
 export type AdobeWorkingCmykPreset =
   | 'FOGRA39'
   | 'PSO_COATED_V3'
@@ -17,6 +20,7 @@ export interface TemplatePrintSettings {
   colorProfileMode: PrintColorProfileMode | null
   adobeWorkingCmykPreset: AdobeWorkingCmykPreset | null
   customIccPath: string | null
+  sourceRgbIcc: SourceRgbIcc | null
 }
 
 export interface TemplateField {
@@ -90,6 +94,10 @@ export interface ProjectSummary {
   templateId: string
   createdAt: string
   updatedAt: string
+  createdByActorName?: string | null
+  lastEditedByActorName?: string | null
+  lastExportedAt?: string | null
+  lastExportedByActorName?: string | null
 }
 
 export interface SheetDimensions {
@@ -166,7 +174,9 @@ export function normalizeProjectSheetSnapshot(rawSnapshot: unknown, fallbackShee
       fields,
       width,
       height,
-      unit: typeof item.unit === 'string' ? item.unit as SheetDimensionUnit : fallback.unit,
+      unit: typeof item.unit === 'string' && VALID_SHEET_UNITS.includes(item.unit as any)
+        ? item.unit as SheetDimensionUnit
+        : fallback.unit,
       widthPx,
       heightPx,
     }]

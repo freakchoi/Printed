@@ -28,9 +28,10 @@ export function FieldToastEditor({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-      }
+      if (event.key !== 'Escape') return
+      const target = event.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      onClose()
     }
 
     window.addEventListener('keydown', handleKeyDown)
@@ -58,7 +59,7 @@ export function FieldToastEditor({
 
   return (
     <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 w-[min(560px,calc(100%-32px))] -translate-x-1/2">
-      <div className="pointer-events-auto rounded-lg border border-border/80 bg-card/96 shadow-[0_18px_40px_rgba(2,8,23,0.18)] backdrop-blur-lg">
+      <div className="motion-modal-sheet motion-modal-card pointer-events-auto rounded-lg border border-border/80 bg-card/96 shadow-[0_18px_40px_rgba(2,8,23,0.18)] backdrop-blur-lg">
         <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground">텍스트 수정</p>

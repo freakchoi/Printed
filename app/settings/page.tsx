@@ -9,12 +9,14 @@ import { ArrowLeft } from 'lucide-react'
 
 export default function SettingsPage() {
   const [msg, setMsg] = useState('')
+  const [msgType, setMsgType] = useState<'success' | 'error' | null>(null)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setMsg('')
+    setMsgType(null)
     const form = new FormData(e.currentTarget)
     const res = await fetch('/api/user/password', {
       method: 'PUT',
@@ -25,7 +27,13 @@ export default function SettingsPage() {
       }),
     })
     const data = await res.json()
-    setMsg(res.ok ? '비밀번호가 변경되었습니다.' : (data.error ?? '오류가 발생했습니다.'))
+    if (res.ok) {
+      setMsg('비밀번호가 변경되었습니다.')
+      setMsgType('success')
+    } else {
+      setMsg(data.error ?? '오류가 발생했습니다.')
+      setMsgType('error')
+    }
     setLoading(false)
   }
 
@@ -47,7 +55,7 @@ export default function SettingsPage() {
               <Input id="newPassword" name="newPassword" type="password" required />
             </div>
             {msg && (
-              <p className={`text-sm ${msg.includes('변경') ? 'text-green-600' : 'text-destructive'}`}>
+              <p className={`text-sm ${msgType === 'success' ? 'text-primary' : 'text-destructive'}`}>
                 {msg}
               </p>
             )}

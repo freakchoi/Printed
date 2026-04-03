@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
+import { getProjectPersistenceCapabilities, normalizeActorIdentity, recordProjectActivityIfSupported } from '@/lib/project-activity.server'
 import { prisma } from '@/lib/prisma'
 import { buildTemplateDetail, hydrateSheetSvgAndFields } from '@/lib/template-server'
 import { normalizeProjectSheetSnapshot, normalizeProjectValues, reconcileProjectSheetSnapshotDimensions } from '@/lib/template-model'
@@ -16,16 +17,24 @@ function buildDuplicateName(name: string, existingNames: Set<string>) {
 }
 
 export async function POST(
-  _: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const capabilities = await getProjectPersistenceCapabilities(prisma)
+  const body = await req.json().catch(() => ({})) as { actorClientId?: string; actorName?: string }
+  const actor = normalizeActorIdentity(body)
 
   const { id } = await params
   const project = await prisma.project.findFirst({
     where: { id, userId: session.user!.id! },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      values: true,
+      sheetSnapshot: true,
+      templateId: true,
       template: {
         include: {
           sheets: {
@@ -44,8 +53,15 @@ export async function POST(
           },
         },
       },
-    },
-  })
+    } as any,
+  }) as unknown as {
+    id: string
+    name: string
+    sheetSnapshot: string | null
+    template: any
+    templateId: string
+    values: string
+  } | null
 
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -67,18 +83,54 @@ export async function POST(
   })
   const duplicateName = buildDuplicateName(project.name, new Set(siblings.map(item => item.name)))
 
-  const duplicated = await prisma.project.create({
-    data: {
-      name: duplicateName,
+  const duplicated = await prisma.$transaction(async (tx) => {
+    const created = await tx.project.create({
+      data: {
+        name: duplicateName,
+        templateId: project.templateId,
+        userId: session.user!.id!,
+        values: JSON.stringify(values),
+        sheetSnapshot: JSON.stringify(sheetSnapshot),
+        ...(capabilities.projectActorColumns ? {
+          createdByActorName: actor.actorName,
+          createdByActorClientId: actor.actorClientId,
+          lastEditedByActorName: actor.actorName,
+          lastEditedByActorClientId: actor.actorClientId,
+        } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+        ...(capabilities.projectActorColumns ? {
+          createdByActorName: true,
+          lastEditedByActorName: true,
+        } : {}),
+      } as any,
+    }) as unknown as {
+      createdAt: Date
+      createdByActorName?: string | null
+      id: string
+      lastEditedByActorName?: string | null
+      name: string
+      updatedAt: Date
+    }
+    await recordProjectActivityIfSupported(tx, capabilities, {
+      action: 'DUPLICATE',
+      actor,
+      projectId: created.id,
+      projectNameSnapshot: created.name,
       templateId: project.templateId,
-      userId: session.user!.id!,
-      values: JSON.stringify(values),
-      sheetSnapshot: JSON.stringify(sheetSnapshot),
-    },
+      metadata: { sourceProjectId: project.id },
+    })
+    return created
   })
 
   return NextResponse.json({
+    createdByActorName: capabilities.projectActorColumns ? (duplicated.createdByActorName ?? null) : null,
     id: duplicated.id,
+    lastEditedByActorName: capabilities.projectActorColumns ? (duplicated.lastEditedByActorName ?? null) : null,
     name: duplicated.name,
     createdAt: duplicated.createdAt,
     updatedAt: duplicated.updatedAt,

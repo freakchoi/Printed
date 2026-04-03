@@ -40,19 +40,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // 로그인 직후에만 DB 조회 (authorize()에서 반환한 user 객체 기반)
         token.id = user.id
+        const userId = user.id as string | undefined
+        const resolvedRole = await resolveUserRole(userId)
+        if (resolvedRole) token.role = resolvedRole
       }
-      const userId = (user?.id as string | undefined) ?? (token.id as string | undefined) ?? token.sub
-      const resolvedRole = await resolveUserRole(userId)
-      if (resolvedRole) token.role = resolvedRole
       return token
     },
     async session({ session, token }) {
       if (session.user) {
         const userId = (token.id as string | undefined) ?? token.sub
         if (userId) session.user.id = userId
-        const resolvedRole = (token.role as UserRole | undefined) ?? await resolveUserRole(userId)
-        if (resolvedRole) session.user.role = resolvedRole
+        // token에 이미 저장된 role을 신뢰 (DB 재조회 불필요)
+        const role = token.role as UserRole | undefined
+        if (role) session.user.role = role
       }
       return session
     },

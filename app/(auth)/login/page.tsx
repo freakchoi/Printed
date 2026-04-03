@@ -35,11 +35,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(13,111,252,0.10),_transparent_24%),linear-gradient(180deg,_#f5f8fe_0%,_#eef3fb_58%,_#f7f9fd_100%)] px-4 py-6 dark:bg-[radial-gradient(circle_at_top,_rgba(13,111,252,0.12),_transparent_24%),linear-gradient(180deg,_#0b1120_0%,_#101827_55%,_#0b1120_100%)] sm:px-6 sm:py-8">
+    <div className="relative min-h-screen overflow-hidden login-bg px-4 py-6 sm:px-6 sm:py-8">
       <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
         <ThemeToggle />
       </div>
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[32rem] w-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,_rgba(13,111,252,0.08),_transparent_68%)] blur-3xl dark:bg-[radial-gradient(circle,_rgba(13,111,252,0.14),_transparent_66%)]" />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[32rem] w-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full login-glow blur-3xl" />
 
       <main className="relative flex min-h-[calc(100vh-3rem)] items-center justify-center sm:min-h-[calc(100vh-4rem)]">
         <section className="w-full max-w-md rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]">

@@ -110,8 +110,8 @@ export function TemplateUploadDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
+    <div className="motion-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+      <div className="motion-modal-sheet motion-modal-card w-full max-w-xl rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]" role="dialog" aria-modal="true">
         <div className="flex items-start justify-between border-b px-6 py-5">
           <div>
             <p className="text-lg font-semibold tracking-tight text-foreground">템플릿 추가</p>

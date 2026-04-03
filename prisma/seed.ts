@@ -8,9 +8,12 @@ async function main() {
   const prisma = new PrismaClient({ adapter })
 
   try {
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'admin'
+    const userPassword = process.env.SEED_USER_PASSWORD ?? 'team0924'
+
     const [adminPasswordHash, userPasswordHash] = await Promise.all([
-      bcrypt.hash('admin', 12),
-      bcrypt.hash('team0924', 12),
+      bcrypt.hash(adminPassword, 12),
+      bcrypt.hash(userPassword, 12),
     ])
 
     const [adminUser] = await Promise.all([
@@ -43,8 +46,8 @@ async function main() {
     }
 
     console.log('Seed complete')
-    console.log('- po / admin (ADMIN)')
-    console.log('- teamo2 / team0924 (USER)')
+    console.log('- po (ADMIN) — password from SEED_ADMIN_PASSWORD')
+    console.log('- teamo2 (USER) — password from SEED_USER_PASSWORD')
   } finally {
     await prisma.$disconnect()
   }

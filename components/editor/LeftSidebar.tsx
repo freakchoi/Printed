@@ -50,6 +50,8 @@ export function LeftSidebar({
   const [editingTemplate, setEditingTemplate] = useState<TemplateListItem | null>(null)
   const [isTemplateSaving, setIsTemplateSaving] = useState(false)
   const [templateActionError, setTemplateActionError] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const categories = useMemo(
     () => [...new Set(templates.map(template => template.category))].sort((a, b) => a.localeCompare(b, 'ko')),
@@ -81,26 +83,33 @@ export function LeftSidebar({
 
   const handleTemplateDelete = async (templateId: string) => {
     if (!onDeleteTemplate) return
-    if (!window.confirm('이 템플릿을 삭제하시겠습니까?')) return
+    setDeleteConfirmId(templateId)
+  }
+
+  const confirmDelete = async () => {
+    if (!onDeleteTemplate || !deleteConfirmId) return
+    const id = deleteConfirmId
+    setDeleteConfirmId(null)
+    setDeleteError(null)
     setTemplateActionError(null)
     try {
-      await onDeleteTemplate(templateId)
+      await onDeleteTemplate(id)
     } catch (error) {
       const message = error instanceof Error ? error.message : '템플릿을 삭제하지 못했습니다.'
       setTemplateActionError(message)
-      window.alert(message)
+      setDeleteError(message)
     }
   }
 
   return (
     <TooltipProvider delay={0}>
       <>
-        <aside className={cn('relative flex flex-col border-r bg-card transition-all duration-200', collapsed ? 'w-16' : 'w-64')}>
+        <aside className={cn('motion-panel-in motion-sidebar-shell relative flex flex-col border-r bg-card', collapsed ? 'w-16' : 'w-64')}>
           <div className="flex h-14 items-center justify-between border-b px-4">
-            {!collapsed ? <p className="text-sm font-semibold text-foreground">템플릿 목록</p> : <span className="sr-only">템플릿 목록</span>}
+            {!collapsed ? <p className="motion-sidebar-content text-sm font-semibold text-foreground">템플릿 목록</p> : <span className="sr-only">템플릿 목록</span>}
             <button
               onClick={() => setCollapsed(current => !current)}
-              className="rounded-md p-1.5 hover:bg-accent"
+              className="editor-press motion-floating rounded-md p-1.5 hover:bg-accent"
               aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
             >
               {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -108,8 +117,15 @@ export function LeftSidebar({
           </div>
 
           <ScrollArea className="min-h-0 flex-1 pb-24">
-            {isLoading ? (
-              <div className="p-3 text-sm text-muted-foreground">템플릿 불러오는 중</div>
+            {isLoading && templates.length === 0 ? (
+              <div className="space-y-3 p-3">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="rounded-lg border border-border/60 bg-background/75 px-3 py-3">
+                    <div className="editor-skeleton h-3 w-16 rounded-full" />
+                    <div className="editor-skeleton mt-3 h-4 w-4/5 rounded-md" />
+                  </div>
+                ))}
+              </div>
             ) : error ? (
               <div className="p-3">
                 <div className="border border-destructive/20 bg-destructive/5 px-3 py-3">
@@ -137,7 +153,7 @@ export function LeftSidebar({
                           <TooltipTrigger
                             type="button"
                             onClick={() => toggleCategory(category)}
-                            className="flex w-full items-center justify-center px-2 py-3 text-lg hover:bg-accent"
+                            className="editor-press motion-floating flex w-full items-center justify-center px-2 py-3 text-lg hover:bg-accent"
                             aria-label={`${category} 접기 펼치기`}
                           >
                             <span>{categoryIcon(category)}</span>
@@ -148,10 +164,10 @@ export function LeftSidebar({
                         <button
                           type="button"
                           onClick={() => toggleCategory(category)}
-                          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-accent/40"
+                          className="editor-press motion-floating flex w-full items-center justify-between px-4 py-3 text-left hover:bg-accent/40"
                         >
                           <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">{category}</span>
-                          <ChevronDown size={14} className={cn('text-muted-foreground transition-transform', isOpen ? 'rotate-0' : '-rotate-90')} />
+                          <ChevronDown size={14} className={cn('text-muted-foreground transition-transform duration-[400ms] [transition-timing-function:var(--motion-bounce-soft)]', isOpen ? 'rotate-0' : '-rotate-90')} />
                         </button>
                       )}
 
@@ -166,7 +182,7 @@ export function LeftSidebar({
                                     type="button"
                                     onClick={() => onSelect(template.id)}
                                     className={cn(
-                                      'relative flex w-full items-center justify-center px-0 py-3 transition-colors',
+                                      'editor-hover-lift editor-press relative flex w-full items-center justify-center px-0 py-3 transition-colors',
                                       isActive ? 'bg-primary/6 text-primary' : 'hover:bg-accent/60 text-foreground',
                                     )}
                                     aria-label={template.name}
@@ -188,9 +204,9 @@ export function LeftSidebar({
                             }
 
                             const row = (
-                              <div
-                                className={cn(
-                                  'group/template relative flex items-center',
+                                <div
+                                  className={cn(
+                                  'motion-surface group/template relative flex items-center',
                                   isActive ? 'bg-primary/6' : 'hover:bg-accent/60',
                                 )}
                               >
@@ -199,7 +215,7 @@ export function LeftSidebar({
                                   onClick={() => onSelect(template.id)}
                                   aria-label={collapsed ? template.name : undefined}
                                   className={cn(
-                                    'relative flex min-w-0 flex-1 items-center px-4 py-3 text-left transition-colors',
+                                    'editor-hover-lift editor-press relative flex min-w-0 flex-1 items-center px-4 py-3 text-left transition-colors',
                                     collapsed ? 'justify-center px-0' : '',
                                   )}
                                 >
@@ -225,7 +241,7 @@ export function LeftSidebar({
                                         setTemplateActionError(null)
                                         setEditingTemplate(template)
                                       }}
-                                      className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground"
+                                      className="editor-press flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground"
                                       aria-label={`${template.name} 수정`}
                                     >
                                       <Pencil size={14} />
@@ -236,7 +252,7 @@ export function LeftSidebar({
                                         event.stopPropagation()
                                         void handleTemplateDelete(template.id)
                                       }}
-                                      className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                                      className="editor-press flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                                       aria-label={`${template.name} 삭제`}
                                     >
                                       <Trash2 size={14} />
@@ -269,7 +285,7 @@ export function LeftSidebar({
                 onClick={() => setIsUploadOpen(true)}
                 aria-label={collapsed ? '템플릿 추가' : undefined}
                 className={cn(
-                  'flex w-full items-center gap-3 transition-colors hover:bg-accent/70',
+                  'editor-hover-lift editor-press motion-floating flex w-full items-center gap-3 transition-colors hover:bg-accent/70',
                   collapsed ? 'justify-center px-0 py-4' : 'px-4 py-4 text-left',
                 )}
               >
@@ -286,6 +302,35 @@ export function LeftSidebar({
             </div>
           ) : null}
         </aside>
+
+        {deleteConfirmId ? (
+          <div className="motion-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+            <div className="motion-modal-sheet motion-modal-card w-full max-w-md rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
+              <div className="border-b px-6 py-5">
+                <p className="text-lg font-semibold tracking-tight text-foreground">템플릿 삭제</p>
+                <p className="mt-1 text-sm text-muted-foreground">이 템플릿을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.</p>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2 border-t px-6 py-5">
+                <Button type="button" variant="outline" className="editor-press" onClick={() => setDeleteConfirmId(null)}>취소</Button>
+                <Button type="button" variant="destructive" className="editor-press" onClick={() => void confirmDelete()}>삭제</Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {deleteError ? (
+          <div className="motion-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+            <div className="motion-modal-sheet motion-modal-card w-full max-w-md rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
+              <div className="border-b px-6 py-5">
+                <p className="text-lg font-semibold tracking-tight text-foreground">삭제 실패</p>
+                <p className="mt-1 text-sm text-muted-foreground">{deleteError}</p>
+              </div>
+              <div className="flex justify-end border-t px-6 py-5">
+                <Button type="button" variant="outline" className="editor-press" onClick={() => setDeleteError(null)}>확인</Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <TemplateUploadDialog open={isUploadOpen} onOpenChange={setIsUploadOpen} onUploaded={onUploaded} />
         <TemplateEditDialog

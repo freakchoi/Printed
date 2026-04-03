@@ -86,6 +86,9 @@
   --editor-artboard-shell: rgba(223, 233, 248, 0.98);
   --editor-artboard-border: rgba(191, 204, 223, 0.9);
   --editor-artboard-shadow: 0 18px 60px rgba(15, 23, 42, 0.08);
+  --motion-spring: cubic-bezier(0.25, 1, 0.35, 1);
+  --motion-bounce-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-swift: cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 .dark {
@@ -137,5 +140,262 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.988);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(-14px) scale(0.988);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes fade-in-soft {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in-soft {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes rise-in-soft {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.972);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@layer utilities {
+  .motion-fade-up {
+    animation: fade-up 280ms var(--motion-spring) both;
+  }
+
+  .motion-fade-in {
+    animation: fade-in-soft 260ms var(--motion-swift) both;
+  }
+
+  .motion-panel-in {
+    animation: panel-in 340ms var(--motion-spring) both;
+  }
+
+  .motion-scale-in {
+    animation: scale-in-soft 300ms var(--motion-bounce-soft) both;
+  }
+
+  .motion-modal-sheet {
+    animation: rise-in-soft 380ms var(--motion-bounce-soft) both;
+  }
+
+  .motion-backdrop {
+    animation: fade-in-soft 260ms var(--motion-swift) both;
+  }
+
+  .motion-stagger > * {
+    animation: fade-up 280ms var(--motion-spring) both;
+  }
+
+  .motion-stagger > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+
+  .motion-stagger > *:nth-child(3) {
+    animation-delay: 90ms;
+  }
+
+  .motion-stagger > *:nth-child(4) {
+    animation-delay: 130ms;
+  }
+
+  .motion-stagger > *:nth-child(5) {
+    animation-delay: 170ms;
+  }
+
+  .motion-surface {
+    transition:
+      transform 360ms var(--motion-spring),
+      opacity 280ms var(--motion-swift),
+      box-shadow 360ms var(--motion-spring),
+      border-color 280ms var(--motion-swift),
+      background-color 280ms var(--motion-swift),
+      filter 320ms var(--motion-swift);
+  }
+
+  .motion-sidebar-shell {
+    overflow: hidden;
+    transition:
+      width 320ms var(--motion-spring),
+      box-shadow 320ms var(--motion-spring),
+      background-color 280ms var(--motion-swift),
+      border-color 280ms var(--motion-swift);
+  }
+
+  .motion-sidebar-content {
+    transition:
+      opacity 260ms var(--motion-swift),
+      transform 360ms var(--motion-spring),
+      max-width 360ms var(--motion-spring);
+  }
+
+  .motion-modal-card {
+    transform-origin: center bottom;
+  }
+
+  .motion-zoom-surface {
+    transition:
+      width 280ms var(--motion-spring),
+      height 280ms var(--motion-spring),
+      transform 280ms var(--motion-spring),
+      box-shadow 320ms var(--motion-spring),
+      border-color 260ms var(--motion-swift);
+  }
+
+  .motion-zoom-shell {
+    transition:
+      transform 360ms var(--motion-bounce-soft),
+      box-shadow 360ms var(--motion-spring),
+      border-color 280ms var(--motion-swift),
+      background-color 280ms var(--motion-swift);
+  }
+
+  .motion-floating {
+    transition:
+      transform 340ms var(--motion-bounce-soft),
+      opacity 240ms var(--motion-swift),
+      box-shadow 320ms var(--motion-spring),
+      border-color 260ms var(--motion-swift);
+  }
+
+  .editor-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+
+  .editor-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, white 52%, transparent) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.35s linear infinite;
+  }
+
+  .editor-hover-lift {
+    transition:
+      transform 280ms var(--motion-bounce-soft),
+      box-shadow 280ms var(--motion-spring),
+      background-color 220ms var(--motion-swift),
+      border-color 220ms var(--motion-swift),
+      opacity 220ms var(--motion-swift);
+  }
+
+  .editor-hover-lift:hover {
+    transform: translateY(-2px) scale(1.01);
+  }
+
+  .editor-press {
+    transition: transform 220ms var(--motion-bounce-soft);
+  }
+
+  .editor-press:active {
+    transform: scale(0.975);
+  }
+
+  .login-bg {
+    background: radial-gradient(circle at top, rgba(13, 111, 252, 0.1), transparent 24%), linear-gradient(180deg, #f5f8fe 0%, #eef3fb 58%, #f7f9fd 100%);
+  }
+
+  .dark .login-bg {
+    background: radial-gradient(circle at top, rgba(13, 111, 252, 0.12), transparent 24%), linear-gradient(180deg, #0b1120 0%, #101827 55%, #0b1120 100%);
+  }
+
+  .login-glow {
+    background: radial-gradient(circle, rgba(13, 111, 252, 0.08), transparent 68%);
+  }
+
+  .dark .login-glow {
+    background: radial-gradient(circle, rgba(13, 111, 252, 0.14), transparent 66%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .motion-fade-up,
+  .motion-fade-in,
+  .motion-scale-in,
+  .motion-panel-in,
+  .motion-modal-sheet,
+  .motion-backdrop,
+  .motion-stagger > *,
+  .editor-skeleton::after,
+  .editor-hover-lift,
+  .editor-press {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+
+  .motion-sidebar-shell,
+  .motion-zoom-surface,
+  .motion-zoom-shell,
+  .motion-surface {
+    transition-duration: 0.01ms !important;
   }
 }

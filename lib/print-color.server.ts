@@ -1,6 +1,6 @@
 import { access } from 'fs/promises'
 import path from 'path'
-import type { AdobeWorkingCmykPreset, TemplatePrintSettings } from '@/lib/template-model'
+import type { AdobeWorkingCmykPreset, SourceRgbIcc, TemplatePrintSettings } from '@/lib/template-model'
 import { ADOBE_WORKING_CMYK_PRESETS } from '@/lib/print-color'
 
 export interface ResolvedPrintColorProfile {
@@ -13,6 +13,12 @@ const ICC_SEARCH_PATHS = {
   sRgb: [
     '/System/Library/ColorSync/Profiles/sRGB Profile.icc',
     '/Library/ColorSync/Profiles/sRGB Profile.icc',
+  ],
+  adobeRgb: [
+    '/Library/Application Support/Adobe/Color/Profiles/Recommended/AdobeRGB1998.icc',
+    '/Library/ColorSync/Profiles/AdobeRGB1998.icc',
+    '/System/Library/ColorSync/Profiles/AdobeRGB1998.icc',
+    '/usr/share/color/icc/colord/AdobeRGB1998.icc',
   ],
   presets: {
     FOGRA39: [
@@ -44,7 +50,15 @@ async function resolveExistingPath(candidates: string[]) {
   return null
 }
 
-async function resolveSourceRgbIccPath() {
+async function resolveSourceRgbIccPath(preset: SourceRgbIcc = 'sRGB') {
+  if (preset === 'AdobeRGB') {
+    const resolved = await resolveExistingPath(ICC_SEARCH_PATHS.adobeRgb)
+    if (!resolved) {
+      throw new Error('AdobeRGB ICC 프로파일을 찾을 수 없습니다. Adobe Creative Cloud가 설치되어 있는지 확인하세요.')
+    }
+    return resolved
+  }
+
   const resolved = await resolveExistingPath(ICC_SEARCH_PATHS.sRgb)
   if (!resolved) {
     throw new Error('sRGB ICC 프로파일을 찾을 수 없습니다.')
@@ -69,22 +83,28 @@ export async function resolveTemplatePrintProfile(settings: TemplatePrintSetting
     throw new Error('이 템플릿의 인쇄용 CMYK 프로파일이 설정되지 않았습니다.')
   }
 
-  const sourceRgbIccPath = await resolveSourceRgbIccPath()
+  const sourceRgbIccPath = await resolveSourceRgbIccPath(settings.sourceRgbIcc ?? 'sRGB')
 
   if (settings.colorProfileMode === 'custom-icc') {
     if (!settings.customIccPath) {
       throw new Error('이 템플릿의 인쇄용 CMYK 프로파일이 설정되지 않았습니다.')
     }
 
+    const resolvedPath = path.resolve(settings.customIccPath)
+    const allowedDir = path.resolve(process.cwd(), 'uploads', 'icc')
+    if (!resolvedPath.startsWith(allowedDir + path.sep) && resolvedPath !== allowedDir) {
+      throw new Error('ICC 프로파일 파일 경로가 유효하지 않습니다.')
+    }
+
     try {
-      await access(settings.customIccPath)
+      await access(resolvedPath)
     } catch {
       throw new Error('ICC 프로파일 파일을 읽을 수 없습니다.')
     }
 
     return {
-      label: path.basename(settings.customIccPath),
-      outputIccPath: settings.customIccPath,
+      label: path.basename(resolvedPath),
+      outputIccPath: resolvedPath,
       sourceRgbIccPath,
     }
   }
