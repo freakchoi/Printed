@@ -131,7 +131,7 @@ export default function EditorPage() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [exportFormat, setExportFormat] = useState<'pdf' | 'png' | 'jpeg'>('pdf')
   const [exportFileName, setExportFileName] = useState('')
-  const [selectionMode, setSelectionMode] = useState<ImageSelectionMode>('current')
+  const [selectionMode, setSelectionMode] = useState<ImageSelectionMode>('all')
   const [imageMode, setImageMode] = useState<ImageOutputMode>('combined')
   const [combinedDirection, setCombinedDirection] = useState<CombinedImageDirection>('horizontal')
   const [rasterMode, setRasterMode] = useState<RasterMode>('high-res')
@@ -483,7 +483,6 @@ export default function EditorPage() {
           rangeStart: nextRangeStart,
           rasterMode: nextRasterMode,
           selectionMode: nextSelectionMode,
-          sheetId: selectedSheet?.id,
           values,
         }),
       })
@@ -845,7 +844,7 @@ export default function EditorPage() {
   const handleOpenExportDialog = useCallback(() => {
     setExportFileName((pendingProjectName.trim() || activeProjectMeta?.name || '새 작업'))
     setExportFormat('pdf')
-    setSelectionMode('current')
+    setSelectionMode('all')
     setImageMode('combined')
     setCombinedDirection('horizontal')
     setRasterMode('high-res')

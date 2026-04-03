@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { projectId, format, fileName, sheetId, rasterMode, selectionMode = 'current', imageMode = 'combined', combinedDirection = 'horizontal', rangeStart, rangeEnd, values: rawValues } = await req.json() as {
+    const { projectId, format, fileName, rasterMode, selectionMode = 'all', imageMode = 'combined', combinedDirection = 'horizontal', rangeStart, rangeEnd, values: rawValues } = await req.json() as {
       combinedDirection?: CombinedImageDirection
       fileName?: string
       imageMode?: ImageOutputMode
@@ -33,7 +33,6 @@ export async function POST(req: NextRequest) {
       rangeEnd?: number
       rangeStart?: number
       selectionMode?: ImageSelectionMode
-      sheetId?: string
       rasterMode?: RasterMode
       values?: unknown
     }
@@ -71,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     const baseName = (fileName?.trim() || project.name).trim()
     const encodedName = encodeURIComponent(baseName)
-    const activeSheet = sheetSnapshot.find(sheet => sheet.id === sheetId) ?? sheetSnapshot[0]
+    const activeSheet = sheetSnapshot[0]
     if (!activeSheet) {
       return NextResponse.json({ error: '대지 정보를 찾을 수 없습니다' }, { status: 404 })
     }
@@ -83,7 +82,6 @@ export async function POST(req: NextRequest) {
 
       const selectedSheets = selectRenderableSheets(sheetSnapshot, {
         selectionMode,
-        currentSheetId: activeSheet.id,
         rangeStart,
         rangeEnd,
       })

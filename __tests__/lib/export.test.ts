@@ -1,5 +1,5 @@
 import { PDFDocument } from 'pdf-lib'
-import { buildExportHTMLForSheet, buildExportHTMLForSheets, buildExportSVG, fixPdfPageBoxes, getRasterExportDimensions, getSheetPdfSizePt, recomposePdfPagesToExactSize, resolvePdfRenderStrategy } from '@/lib/export'
+import { buildExportHTMLForSheet, buildExportHTMLForSheets, buildExportSVG, fixPdfPageBoxes, getRasterExportDimensions, getSheetPdfSizePt, recomposePdfPagesToExactSize, resolvePdfRenderStrategy, selectRenderableSheets } from '@/lib/export'
 import type { TemplateSheetDetail } from '@/lib/template-model'
 
 describe('buildExportSVG', () => {
@@ -240,6 +240,45 @@ describe('getRasterExportDimensions', () => {
       height: 9000,
       scale: 4,
     })
+  })
+})
+
+describe('selectRenderableSheets', () => {
+  const sheets = [
+    { id: 'sheet-2', order: 1 },
+    { id: 'sheet-1', order: 0 },
+    { id: 'sheet-3', order: 2 },
+  ]
+
+  it('all 선택 시 순서대로 전체 대지를 반환한다', () => {
+    expect(selectRenderableSheets(sheets, { selectionMode: 'all' })).toEqual([
+      { id: 'sheet-1', order: 0 },
+      { id: 'sheet-2', order: 1 },
+      { id: 'sheet-3', order: 2 },
+    ])
+  })
+
+  it('range 선택 시 시작과 끝이 뒤집혀 들어와도 정상 범위를 반환한다', () => {
+    expect(selectRenderableSheets(sheets, {
+      selectionMode: 'range',
+      rangeStart: 3,
+      rangeEnd: 2,
+    })).toEqual([
+      { id: 'sheet-2', order: 1 },
+      { id: 'sheet-3', order: 2 },
+    ])
+  })
+
+  it('range 선택 시 범위를 벗어난 번호는 대지 개수에 맞게 clamp 한다', () => {
+    expect(selectRenderableSheets(sheets, {
+      selectionMode: 'range',
+      rangeStart: 0,
+      rangeEnd: 99,
+    })).toEqual([
+      { id: 'sheet-1', order: 0 },
+      { id: 'sheet-2', order: 1 },
+      { id: 'sheet-3', order: 2 },
+    ])
   })
 })
 

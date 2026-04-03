@@ -72,7 +72,6 @@ export function ExportDialog({
     { value: 'jpeg' as const, label: 'JPG', Icon: ImageIconLucide },
   ]
   const selectionOptions = [
-    { value: 'current' as const, label: '현재 대지', description: '열어둔 대지만 저장', Icon: FileText },
     { value: 'all' as const, label: '전체 대지', description: '모든 대지 저장', Icon: Layers3 },
     { value: 'range' as const, label: '범위 선택', description: '시작·끝 번호 지정', Icon: ScanSearch },
   ]
@@ -135,7 +134,7 @@ export function ExportDialog({
             <>
               <section className="space-y-2">
                 <p className="text-sm font-medium text-foreground">대지 선택</p>
-                <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="대지 선택">
+                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="대지 선택">
                   {selectionOptions.map(({ value, label, description, Icon }) => {
                     const isSelected = selectionMode === value
                     return (

@@ -319,13 +319,12 @@ export function selectRenderableSheets<T extends { id: string; order: number }>(
   sheets: T[],
   options: {
     selectionMode?: ImageSelectionMode
-    currentSheetId?: string | null
     rangeStart?: number
     rangeEnd?: number
   },
 ) {
   const ordered = [...sheets].sort((a, b) => a.order - b.order)
-  const selectionMode = options.selectionMode ?? 'current'
+  const selectionMode = options.selectionMode ?? 'all'
 
   if (selectionMode === 'all') {
     return ordered
@@ -340,8 +339,7 @@ export function selectRenderableSheets<T extends { id: string; order: number }>(
     })
   }
 
-  const current = ordered.find(sheet => sheet.id === options.currentSheetId) ?? ordered[0]
-  return current ? [current] : []
+  return ordered
 }
 
 export async function exportRenderableSheetsToCombinedImage(
