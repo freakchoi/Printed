@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import DOMPurify from 'dompurify'
 import { AlertCircle, Download, GripVertical, PencilLine, Plus, Save, Trash2, X } from 'lucide-react'
 import { LoadingOverlay } from '@/components/editor/LoadingOverlay'
+import { ZoomControl } from '@/components/editor/ZoomControl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatSheetDimensions, makeArtboardDisplayName, type ProjectSheetSnapshot, type ProjectValuesBySheet, type TemplateSheetDetail } from '@/lib/template-model'
@@ -64,6 +65,7 @@ interface SVGCanvasProps {
   onZoomFit?: () => void
   onZoomIn?: () => void
   onZoomOut?: () => void
+  onZoomSet?: (scale: number) => void
   onZoomWheel?: (delta: number) => void
 }
 
@@ -182,6 +184,7 @@ export function SVGCanvas({
   onZoomFit,
   onZoomIn,
   onZoomOut,
+  onZoomSet,
   onZoomWheel,
 }: SVGCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -471,7 +474,6 @@ export function SVGCanvas({
           )}
 
           <div className="flex items-center gap-3">
-            <div className={sharpDividerClass} />
             {isProjectPreview ? (
               <div className="inline-flex items-center gap-1.5">
                 <Button size="sm" variant="outline" className="editor-press h-8 rounded-md" onClick={onOpenSave} disabled={isSaving}>
@@ -504,11 +506,23 @@ export function SVGCanvas({
         </div>
       </div>
 
-      <div
-        ref={containerRef}
-        className="relative min-h-0 flex-1 overflow-auto scroll-smooth"
-        onWheel={handleWheel}
-      >
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="absolute right-4 top-4 z-10">
+          <ZoomControl
+            maxZoomScale={maxZoomScale}
+            zoomScale={zoomScale}
+            zoomLabel={zoomLabel}
+            onZoomFit={onZoomFit ?? (() => {})}
+            onZoomIn={onZoomIn ?? (() => {})}
+            onZoomOut={onZoomOut ?? (() => {})}
+            onZoomSet={onZoomSet ?? (() => {})}
+          />
+        </div>
+        <div
+          ref={containerRef}
+          className="h-full overflow-auto scroll-smooth"
+          onWheel={handleWheel}
+        >
         <LoadingOverlay
           isVisible={isLoading || isSaving || isExporting}
           title={isLoading ? '문서를 불러오는 중' : isSaving ? '작업을 저장하는 중' : '파일을 준비하는 중'}
@@ -713,6 +727,7 @@ export function SVGCanvas({
                 </section>
               )
             })}
+        </div>
         </div>
       </div>
     </div>

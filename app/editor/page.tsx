@@ -14,7 +14,6 @@ import { SaveFileDialog } from '@/components/editor/SaveFileDialog'
 import { ConfirmDiscardDialog } from '@/components/editor/ConfirmDiscardDialog'
 import { ExportDialog } from '@/components/editor/ExportDialog'
 import { StatusToast } from '@/components/editor/StatusToast'
-import { ZoomControl } from '@/components/editor/ZoomControl'
 import {
   type CombinedImageDirection,
   createEmptyValuesForSheets,
@@ -1698,6 +1697,7 @@ export default function EditorPage() {
                 onZoomFit={handleZoomFit}
                 onZoomIn={handleZoomIn}
                 onZoomOut={handleZoomOut}
+                onZoomSet={handleZoomSet}
                 onZoomWheel={handleZoomWheel}
               />
               {shouldShowFieldToast ? (
@@ -1813,16 +1813,7 @@ export default function EditorPage() {
         </div>
       ) : null}
 
-      <div className="fixed right-4 top-20 z-[70] flex flex-col items-end gap-2">
-        <ZoomControl
-          maxZoomScale={maxZoomScale}
-          zoomScale={zoomScale}
-          zoomLabel={zoomLabel}
-          onZoomFit={handleZoomFit}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onZoomSet={handleZoomSet}
-        />
+      <div className="fixed right-4 top-20 z-[70]">
         <StatusToast
           isVisible={Boolean(toast?.message)}
           kind={toast?.kind ?? 'error'}
