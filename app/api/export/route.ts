@@ -26,8 +26,8 @@ const VALID_IMAGE_MODES = ['combined', 'separate'] as const
 const VALID_COMBINED_DIRECTIONS = ['horizontal', 'vertical'] as const
 const VALID_RASTER_MODES = ['default', 'high-res'] as const
 
-function getUserId(session: NonNullable<Awaited<ReturnType<typeof auth>>>) {
-  const id = session.user?.id
+function getUserId(session: { user?: { id?: string | null } } | null) {
+  const id = session?.user?.id
   if (!id) throw new Error('Session user ID not found')
   return id
 }
