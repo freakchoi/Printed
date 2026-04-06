@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { auth } from '@/lib/auth'
 import { buildAutoCloneName, getProjectPersistenceCapabilities, normalizeActorIdentity, recordProjectActivityIfSupported } from '@/lib/project-activity.server'
 import { prisma } from '@/lib/prisma'
@@ -16,29 +17,24 @@ export async function GET(
   const capabilities = await getProjectPersistenceCapabilities(prisma)
 
   const { id } = await params
+  const getSelect: Prisma.ProjectSelect = {
+    id: true,
+    name: true,
+    values: true,
+    sheetSnapshot: true,
+    createdAt: true,
+    updatedAt: true,
+    userId: true,
+    templateId: true,
+    ...(capabilities.projectActorColumns ? { createdByActorName: true, lastEditedByActorName: true } : {}),
+    ...(capabilities.projectExportColumns ? { lastExportedAt: true, lastExportedByActorName: true } : {}),
+    template: {
+      include: { sheets: { select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true } } },
+    },
+  }
   const project = await prisma.project.findFirst({
     where: { id, userId },
-    select: {
-      id: true,
-      name: true,
-      values: true,
-      sheetSnapshot: true,
-      createdAt: true,
-      updatedAt: true,
-      userId: true,
-      templateId: true,
-      ...(capabilities.projectActorColumns ? {
-        createdByActorName: true,
-        lastEditedByActorName: true,
-      } : {}),
-      ...(capabilities.projectExportColumns ? {
-        lastExportedAt: true,
-        lastExportedByActorName: true,
-      } : {}),
-      template: {
-        include: { sheets: { select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true } } },
-      },
-    } as any,
+    select: getSelect,
   }) as unknown as {
     createdAt: Date
     createdByActorName?: string | null
@@ -101,23 +97,22 @@ export async function PUT(
     return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
   }
 
+  const putSelect: Prisma.ProjectSelect = {
+    id: true,
+    name: true,
+    values: true,
+    sheetSnapshot: true,
+    createdAt: true,
+    updatedAt: true,
+    templateId: true,
+    ...(capabilities.projectActorColumns ? { createdByActorName: true } : {}),
+    template: {
+      include: { sheets: { select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true } } },
+    },
+  }
   const project = await prisma.project.findFirst({
     where: { id, userId },
-    select: {
-      id: true,
-      name: true,
-      values: true,
-      sheetSnapshot: true,
-      createdAt: true,
-      updatedAt: true,
-      templateId: true,
-      ...(capabilities.projectActorColumns ? {
-        createdByActorName: true,
-      } : {}),
-      template: {
-        include: { sheets: { select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true } } },
-      },
-    } as any,
+    select: putSelect,
   }) as unknown as {
     createdAt: Date
     createdByActorName?: string | null
@@ -212,10 +207,8 @@ export async function PUT(
           name: true,
           createdAt: true,
           updatedAt: true,
-          ...(capabilities.projectActorColumns ? {
-            lastEditedByActorName: true,
-          } : {}),
-        } as any,
+          ...(capabilities.projectActorColumns ? { lastEditedByActorName: true } : {}),
+        } satisfies Prisma.ProjectSelect,
       }) as unknown as {
         createdAt: Date
         id: string
@@ -260,10 +253,8 @@ export async function PUT(
         name: true,
         createdAt: true,
         updatedAt: true,
-        ...(capabilities.projectActorColumns ? {
-          lastEditedByActorName: true,
-        } : {}),
-      } as any,
+        ...(capabilities.projectActorColumns ? { lastEditedByActorName: true } : {}),
+      } satisfies Prisma.ProjectSelect,
     }) as unknown as {
       createdAt: Date
       id: string

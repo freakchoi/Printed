@@ -14,6 +14,9 @@ import { SaveFileDialog } from '@/components/editor/SaveFileDialog'
 import { ConfirmDiscardDialog } from '@/components/editor/ConfirmDiscardDialog'
 import { ExportDialog } from '@/components/editor/ExportDialog'
 import { StatusToast } from '@/components/editor/StatusToast'
+import { useToast } from './hooks/useToast'
+import { useActorIdentity } from './hooks/useActorIdentity'
+import { useZoom } from './hooks/useZoom'
 import {
   type CombinedImageDirection,
   createEmptyValuesForSheets,
@@ -57,7 +60,6 @@ function downloadBlob(blob: Blob, name: string) {
 }
 
 type ExportFormat = 'pdf' | 'png' | 'jpeg'
-const ACTOR_STORAGE_KEY = 'printed.actor-profile.v1'
 
 function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat('ko-KR', {
@@ -79,8 +81,6 @@ type ActiveProjectMeta = {
   lastExportedAt?: string | null
   lastExportedByActorName?: string | null
 }
-
-type ZoomPreset = 'fit' | 'manual'
 
 type EditorUndoState = {
   pendingProjectName: string
@@ -105,11 +105,6 @@ type PendingAction =
       rangeEnd?: number
     }
 
-type ActorProfile = {
-  actorClientId: string
-  actorName: string
-}
-
 type ProjectMutationResponse = {
   conflict?: boolean
   createdAt?: string
@@ -125,11 +120,7 @@ type ProjectMutationResponse = {
   values?: ProjectValuesBySheet
 }
 
-type ToastState = {
-  id: number
-  kind: 'error' | 'success'
-  message: string
-}
+type ToastState = import('./hooks/useToast').ToastState
 
 function buildProjectSummaryFromMeta(meta: ActiveProjectMeta, templateId: string): ProjectSummary {
   return {
@@ -183,13 +174,8 @@ export default function EditorPage() {
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
-  const [actorProfile, setActorProfile] = useState<ActorProfile | null>(null)
-  const [actorDraftName, setActorDraftName] = useState('')
-  const [actorDialogError, setActorDialogError] = useState<string | null>(null)
-  const [isActorDialogOpen, setIsActorDialogOpen] = useState(false)
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
-  const [toast, setToast] = useState<ToastState | null>(null)
   const [exportFormat, setExportFormat] = useState<'pdf' | 'png' | 'jpeg'>('pdf')
   const [exportFileName, setExportFileName] = useState('')
   const [selectionMode, setSelectionMode] = useState<ImageSelectionMode>('all')
@@ -201,13 +187,22 @@ export default function EditorPage() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false)
   const [deleteConfirmProjectId, setDeleteConfirmProjectId] = useState<string | null>(null)
-  const [zoomScale, setZoomScale] = useState(1)
-  const [zoomPreset, setZoomPreset] = useState<ZoomPreset>('fit')
-  const [fitRequestKey, setFitRequestKey] = useState(0)
-  const [maxZoomScale, setMaxZoomScale] = useState(8)
   const projectsRequestRef = useRef(0)
   const textEditSessionRef = useRef<{ fieldId: string; sheetId: string } | null>(null)
-  const toastTimerRef = useRef<number | null>(null)
+  const { toast, setToast, showToast } = useToast()
+  const {
+    actorName, actorClientId,
+    actorDraftName, setActorDraftName,
+    actorDialogError, setActorDialogError,
+    isActorDialogOpen, setIsActorDialogOpen,
+    saveActorProfile, ensureActorProfile,
+  } = useActorIdentity()
+  const {
+    zoomScale, zoomPreset, fitRequestKey, maxZoomScale, zoomLabel,
+    setMaxZoomScale,
+    handleZoomIn, handleZoomOut, handleZoomWheel,
+    handleZoomFit, handleFitScaleCalculated, handleZoomSet,
+  } = useZoom()
   const cloneProjectSheets = useCallback((sheets: ProjectSheetSnapshot[]) => (
     sheets.map(sheet => ({
       ...sheet,
@@ -232,105 +227,10 @@ export default function EditorPage() {
     values: cloneProjectValues(state.values),
   }), [cloneProjectSheets, cloneProjectValues])
 
-  const actorName = actorProfile?.actorName ?? ''
-  const actorClientId = actorProfile?.actorClientId ?? ''
-
-  const showToast = useCallback((message: string, kind: ToastState['kind'] = 'error') => {
-    const nextToast = {
-      id: Date.now(),
-      kind,
-      message,
-    }
-    setToast(nextToast)
-    if (toastTimerRef.current !== null) {
-      window.clearTimeout(toastTimerRef.current)
-    }
-    toastTimerRef.current = window.setTimeout(() => {
-      setToast(current => current?.id === nextToast.id ? null : current)
-      toastTimerRef.current = null
-    }, kind === 'error' ? 4200 : 2600)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current !== null) {
-        window.clearTimeout(toastTimerRef.current)
-      }
-    }
-  }, [])
-
   useEffect(() => {
     if (!exportError) return
     showToast(exportError, 'error')
   }, [exportError, showToast])
-
-  const saveActorProfile = useCallback((nextName: string) => {
-    const trimmedName = nextName.trim()
-    if (!trimmedName) {
-      setActorDialogError('작업자 이름을 입력해주세요.')
-      return false
-    }
-
-    const nextProfile = {
-      actorName: trimmedName,
-      actorClientId: actorClientId || crypto.randomUUID(),
-    }
-
-    localStorage.setItem(ACTOR_STORAGE_KEY, JSON.stringify(nextProfile))
-    setActorProfile(nextProfile)
-    setActorDraftName(trimmedName)
-    setActorDialogError(null)
-    setIsActorDialogOpen(false)
-    return true
-  }, [actorClientId])
-
-  const ensureActorProfile = useCallback(() => {
-    if (actorName.trim()) return true
-    setActorDraftName(actorDraftName || actorName)
-    setActorDialogError('저장과 내보내기 전에 작업자 이름을 먼저 설정해주세요.')
-    setIsActorDialogOpen(true)
-    return false
-  }, [actorDraftName, actorName])
-
-  useEffect(() => {
-    const storedValue = localStorage.getItem(ACTOR_STORAGE_KEY)
-
-    if (!storedValue) {
-      const fallbackProfile = {
-        actorClientId: crypto.randomUUID(),
-        actorName: '',
-      }
-      setActorProfile(fallbackProfile)
-      setActorDraftName('')
-      setIsActorDialogOpen(true)
-      return
-    }
-
-    try {
-      const parsed = JSON.parse(storedValue) as Partial<ActorProfile>
-      const nextProfile = {
-        actorClientId: parsed.actorClientId?.trim() || crypto.randomUUID(),
-        actorName: parsed.actorName?.trim() || '',
-      }
-      setActorProfile(nextProfile)
-      setActorDraftName(nextProfile.actorName)
-
-      if (!nextProfile.actorName) {
-        setIsActorDialogOpen(true)
-      } else if (parsed.actorClientId?.trim() !== nextProfile.actorClientId || parsed.actorName?.trim() !== nextProfile.actorName) {
-        localStorage.setItem(ACTOR_STORAGE_KEY, JSON.stringify(nextProfile))
-      }
-    } catch {
-      const fallbackProfile = {
-        actorClientId: crypto.randomUUID(),
-        actorName: '',
-      }
-      setActorProfile(fallbackProfile)
-      setActorDraftName('')
-      setIsActorDialogOpen(true)
-      localStorage.setItem(ACTOR_STORAGE_KEY, JSON.stringify(fallbackProfile))
-    }
-  }, [])
 
   const loadTemplates = useCallback(async () => {
     setIsTemplatesLoading(true)
@@ -399,8 +299,7 @@ export default function EditorPage() {
     setWorkspaceNotice(null)
     setProjectTimestampMode('saved')
     setHasCompletedInitialSave(false)
-    setZoomPreset('fit')
-    setFitRequestKey(prev => prev + 1)
+    handleZoomFit()
   }, [])
 
   useEffect(() => {
@@ -910,8 +809,7 @@ export default function EditorPage() {
     }))
     revalidateProjects()
     setProjectTimestampMode('created')
-    setZoomPreset('fit')
-    setFitRequestKey(prev => prev + 1)
+    handleZoomFit()
   }, [actorClientId, actorName, ensureActorProfile, loadProjectIntoWorkspace, revalidateProjects])
 
   const executePendingAction = useCallback(async (action: PendingAction, savedProjectId?: string | null) => {
@@ -944,8 +842,7 @@ export default function EditorPage() {
         }
         loadProjectIntoWorkspace(project)
         setProjectTimestampMode('saved')
-        setZoomPreset('fit')
-        setFitRequestKey(prev => prev + 1)
+        handleZoomFit()
         return
       }
       case 'create-project':
@@ -1070,8 +967,7 @@ export default function EditorPage() {
       }))
       revalidateProjects()
       setProjectTimestampMode('saved')
-      setZoomPreset('fit')
-      setFitRequestKey(prev => prev + 1)
+      handleZoomFit()
     } catch (error) {
       const message = error instanceof Error ? error.message : '작업 파일을 복제하지 못했습니다.'
       setSaveError(message)
@@ -1321,47 +1217,6 @@ export default function EditorPage() {
     [selectedTemplateId, templates],
   )
   const canManageTemplates = session?.user?.role === 'ADMIN'
-
-  const clampZoom = useCallback((value: number) => Math.min(maxZoomScale, Math.max(0.1, value)), [maxZoomScale])
-  const zoomLabel = `${Math.round(zoomScale * 100)}%`
-  const handleZoomIn = useCallback(() => {
-    setZoomPreset('manual')
-    setZoomScale(prev => {
-      const next = clampZoom(prev + 0.1)
-      return Math.abs(next - prev) < 0.001 ? prev : next
-    })
-  }, [clampZoom])
-  const handleZoomOut = useCallback(() => {
-    setZoomPreset('manual')
-    setZoomScale(prev => {
-      const next = clampZoom(prev - 0.1)
-      return Math.abs(next - prev) < 0.001 ? prev : next
-    })
-  }, [clampZoom])
-  const handleZoomWheel = useCallback((delta: number) => {
-    setZoomPreset('manual')
-    setZoomScale(prev => {
-      const next = clampZoom(prev + delta)
-      return Math.abs(next - prev) < 0.001 ? prev : next
-    })
-  }, [clampZoom])
-  const handleZoomFit = useCallback(() => {
-    setZoomPreset('fit')
-    setFitRequestKey(prev => prev + 1)
-  }, [])
-
-  const handleFitScaleCalculated = useCallback((scale: number) => {
-    setZoomScale(scale)
-  }, [])
-
-  const handleZoomSet = useCallback((scale: number) => {
-    setZoomPreset('manual')
-    setZoomScale(clampZoom(scale))
-  }, [clampZoom])
-
-  useEffect(() => {
-    setZoomScale(prev => Math.min(maxZoomScale, Math.max(0.1, prev)))
-  }, [maxZoomScale])
 
   const shouldShowFieldToast = Boolean(
     workspaceMode === 'project-preview' &&

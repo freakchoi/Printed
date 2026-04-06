@@ -298,9 +298,9 @@ export function SVGCanvas({
         cancelAnimationFrame(measurementFrameRef.current)
       }
       measurementFrameRef.current = requestAnimationFrame(() => {
-        const sheetRoot = root.querySelector<HTMLElement>(`[data-sheet-id="${activeSheetId}"]`)
-        const stage = root.querySelector<HTMLElement>(`[data-stage-sheet-id="${activeSheetId}"]`)
-        const textNode = sheetRoot?.querySelector<SVGGraphicsElement>(`text[id="${selectedFieldId}"]`)
+        const sheetRoot = root.querySelector<HTMLElement>(`[data-sheet-id="${CSS.escape(activeSheetId ?? '')}"]`)
+        const stage = root.querySelector<HTMLElement>(`[data-stage-sheet-id="${CSS.escape(activeSheetId ?? '')}"]`)
+        const textNode = sheetRoot?.querySelector<SVGGraphicsElement>(`text[id="${CSS.escape(selectedFieldId ?? '')}"]`)
 
         if (!stage || !textNode) {
           setSelectedFieldBox(null)
@@ -316,7 +316,7 @@ export function SVGCanvas({
     }
 
     scheduleMeasurement()
-    const stage = root.querySelector<HTMLElement>(`[data-stage-sheet-id="${activeSheetId}"]`)
+    const stage = root.querySelector<HTMLElement>(`[data-stage-sheet-id="${CSS.escape(activeSheetId ?? '')}"]`)
     if (stage) {
       activeStageObserverRef.current?.disconnect()
       const observer = new ResizeObserver(() => scheduleMeasurement())

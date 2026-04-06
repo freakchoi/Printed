@@ -88,8 +88,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '사용자 ICC 프로파일 파일이 필요합니다.' }, { status: 400 })
   }
 
-  if (files.some(file => !file.name.toLowerCase().endsWith('.svg') || file.type !== 'image/svg+xml')) {
+  const MAX_SVG_BYTES = 5 * 1024 * 1024 // 5 MB
+  if (files.some(file => !file.name.toLowerCase().endsWith('.svg'))) {
     return NextResponse.json({ error: 'SVG 파일만 업로드 가능합니다' }, { status: 400 })
+  }
+  if (files.some(file => file.size > MAX_SVG_BYTES)) {
+    return NextResponse.json({ error: 'SVG 파일 크기는 5MB를 초과할 수 없습니다' }, { status: 400 })
   }
 
   const uploadDir = path.join(process.cwd(), 'uploads')
@@ -105,14 +109,17 @@ export async function POST(req: NextRequest) {
     await writeFile(customIccPath, Buffer.from(await customIcc.arrayBuffer()))
   }
 
-  const preparedSheets = await Promise.all(files.map(async (file, index) => {
+  let preparedSheets: Awaited<typeof preparedSheetsPromise>
+  const preparedSheetsPromise = Promise.all(files.map(async (file, index) => {
     const svgString = await file.text()
+    if (!/<svg[\s>]/i.test(svgString)) {
+      throw new Error(`'${file.name}'은 유효한 SVG 파일이 아닙니다.`)
+    }
     const normalized = normalizeSVGForEditing(svgString)
     const dimensions = getSvgDimensions(normalized.normalizedSvg)
     const filename = makeSafeFilename(file.name, index)
     const svgPath = path.join(svgDir, filename)
     await writeFile(svgPath, normalized.normalizedSvg, 'utf-8')
-
     return {
       name: `대지 ${index + 1}`,
       order: index,
@@ -128,6 +135,12 @@ export async function POST(req: NextRequest) {
       generatedFieldCount: normalized.generatedFieldCount,
     }
   }))
+  try {
+    preparedSheets = await preparedSheetsPromise
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'SVG 파일 처리 중 오류가 발생했습니다.'
+    return NextResponse.json({ error: message }, { status: 400 })
+  }
 
   // Detect fonts across all sheets and download missing ones
   const allFontFamilies = [...new Set(preparedSheets.flatMap(sheet => extractSVGFontFamilies(sheet.svgContent)))]

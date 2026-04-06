@@ -41,6 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # project specific
+/uploads/icc/
 /exports
 .playwright-cli/
 *.db

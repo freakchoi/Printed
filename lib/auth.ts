@@ -4,6 +4,26 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import type { UserRole } from '@prisma/client'
 
+const MAX_ATTEMPTS = 10
+const LOCK_MS = 15 * 60 * 1000 // 15분
+const loginAttempts = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(username: string): boolean {
+  const now = Date.now()
+  const entry = loginAttempts.get(username)
+  if (!entry || now >= entry.resetAt) {
+    loginAttempts.set(username, { count: 1, resetAt: now + LOCK_MS })
+    return true
+  }
+  if (entry.count >= MAX_ATTEMPTS) return false
+  entry.count += 1
+  return true
+}
+
+function resetRateLimit(username: string) {
+  loginAttempts.delete(username)
+}
+
 async function resolveUserRole(userId?: string | null) {
   if (!userId) return undefined
   const user = await prisma.user.findUnique({
@@ -23,15 +43,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) return null
-        const user = await prisma.user.findUnique({
-          where: { username: credentials.username as string },
-        })
+        const username = credentials.username as string
+        if (!checkRateLimit(username)) return null
+        const user = await prisma.user.findUnique({ where: { username } })
         if (!user) return null
-        const valid = await bcrypt.compare(
-          credentials.password as string,
-          user.passwordHash
-        )
+        const valid = await bcrypt.compare(credentials.password as string, user.passwordHash)
         if (!valid) return null
+        resetRateLimit(username)
         return { id: user.id, name: user.username, email: null, role: user.role }
       },
     }),

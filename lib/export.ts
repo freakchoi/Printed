@@ -2,17 +2,23 @@ import puppeteer from 'puppeteer'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { unlink, readFile, mkdir, writeFile, access } from 'fs/promises'
+import os from 'os'
 import path from 'path'
 import crypto from 'crypto'
 import sharp from 'sharp'
 import JSZip from 'jszip'
+import pLimit from 'p-limit'
 import { PDFDocument } from 'pdf-lib'
 import type { CombinedImageDirection, ImageSelectionMode, ProjectValuesBySheet, TemplatePrintSettings, TemplateSheetDetail } from '@/lib/template-model'
 import { getSvgDimensions } from '@/lib/svg-dimensions'
 import { applyFieldValuesToSVG } from '@/lib/svg-parser'
 import { resolveTemplatePrintProfile } from '@/lib/print-color.server'
+import { FONT_REGISTRY } from '@/lib/fonts'
 
 const execFileAsync = promisify(execFile)
+
+// 동시 PDF export를 직렬화해 Puppeteer 브라우저 싱글턴 경쟁 방지
+const exportLimiter = pLimit(1)
 
 let _browser: import('puppeteer').Browser | null = null
 
@@ -71,42 +77,7 @@ export function buildExportSVG(svgString: string, values: ProjectValuesBySheet[s
 
 function buildFontFaceCSS(): string {
   const fontDir = path.join(process.cwd(), 'public', 'fonts')
-  const entries: Array<{ file: string; family: string; weight: string }> = [
-    { file: 'Pretendard-Thin.otf', family: 'Pretendard', weight: '100' },
-    { file: 'Pretendard-ExtraLight.otf', family: 'Pretendard', weight: '200' },
-    { file: 'Pretendard-Light.otf', family: 'Pretendard', weight: '300' },
-    { file: 'Pretendard-Regular.otf', family: 'Pretendard', weight: '400' },
-    { file: 'Pretendard-Medium.otf', family: 'Pretendard', weight: '500' },
-    { file: 'Pretendard-SemiBold.otf', family: 'Pretendard', weight: '600' },
-    { file: 'Pretendard-Bold.otf', family: 'Pretendard', weight: '700' },
-    { file: 'Pretendard-ExtraBold.otf', family: 'Pretendard', weight: '800' },
-    { file: 'Pretendard-Black.otf', family: 'Pretendard', weight: '900' },
-    { file: 'PretendardJP-Thin.otf', family: 'Pretendard JP', weight: '100' },
-    { file: 'PretendardJP-ExtraLight.otf', family: 'Pretendard JP', weight: '200' },
-    { file: 'PretendardJP-Light.otf', family: 'Pretendard JP', weight: '300' },
-    { file: 'PretendardJP-Regular.otf', family: 'Pretendard JP', weight: '400' },
-    { file: 'PretendardJP-Medium.otf', family: 'Pretendard JP', weight: '500' },
-    { file: 'PretendardJP-SemiBold.otf', family: 'Pretendard JP', weight: '600' },
-    { file: 'PretendardJP-Bold.otf', family: 'Pretendard JP', weight: '700' },
-    { file: 'PretendardJP-ExtraBold.otf', family: 'Pretendard JP', weight: '800' },
-    { file: 'PretendardJP-Black.otf', family: 'Pretendard JP', weight: '900' },
-    { file: 'GmarketSansTTFLight.ttf', family: 'Gmarket Sans TTF', weight: '300' },
-    { file: 'GmarketSansTTFMedium.ttf', family: 'Gmarket Sans TTF', weight: '500' },
-    { file: 'GmarketSansTTFBold.ttf', family: 'Gmarket Sans TTF', weight: '700' },
-    { file: 'GmarketSansLight.otf', family: 'Gmarket Sans', weight: '300' },
-    { file: 'GmarketSansMedium.otf', family: 'Gmarket Sans', weight: '500' },
-    { file: 'GmarketSansBold.otf', family: 'Gmarket Sans', weight: '700' },
-    { file: 'NotoSansJP-Thin.ttf', family: 'Noto Sans JP', weight: '100' },
-    { file: 'NotoSansJP-ExtraLight.ttf', family: 'Noto Sans JP', weight: '200' },
-    { file: 'NotoSansJP-Light.ttf', family: 'Noto Sans JP', weight: '300' },
-    { file: 'NotoSansJP-Regular.ttf', family: 'Noto Sans JP', weight: '400' },
-    { file: 'NotoSansJP-Medium.ttf', family: 'Noto Sans JP', weight: '500' },
-    { file: 'NotoSansJP-SemiBold.ttf', family: 'Noto Sans JP', weight: '600' },
-    { file: 'NotoSansJP-Bold.ttf', family: 'Noto Sans JP', weight: '700' },
-    { file: 'NotoSansJP-ExtraBold.ttf', family: 'Noto Sans JP', weight: '800' },
-    { file: 'NotoSansJP-Black.ttf', family: 'Noto Sans JP', weight: '900' },
-  ]
-  return entries
+  return FONT_REGISTRY
     .map(({ file, family, weight }) =>
       `@font-face { font-family: '${family}'; src: url('file://${path.join(fontDir, file)}'); font-weight: ${weight}; font-style: normal; }`,
     )
@@ -181,44 +152,9 @@ async function isRsvgConvertAvailable(): Promise<boolean> {
 
 async function embedFontsInSVG(svgContent: string): Promise<string> {
   const fontDir = path.join(process.cwd(), 'public', 'fonts')
-  const entries = [
-    { file: 'Pretendard-Thin.otf', family: 'Pretendard', weight: '100' },
-    { file: 'Pretendard-ExtraLight.otf', family: 'Pretendard', weight: '200' },
-    { file: 'Pretendard-Light.otf', family: 'Pretendard', weight: '300' },
-    { file: 'Pretendard-Regular.otf', family: 'Pretendard', weight: '400' },
-    { file: 'Pretendard-Medium.otf', family: 'Pretendard', weight: '500' },
-    { file: 'Pretendard-SemiBold.otf', family: 'Pretendard', weight: '600' },
-    { file: 'Pretendard-Bold.otf', family: 'Pretendard', weight: '700' },
-    { file: 'Pretendard-ExtraBold.otf', family: 'Pretendard', weight: '800' },
-    { file: 'Pretendard-Black.otf', family: 'Pretendard', weight: '900' },
-    { file: 'PretendardJP-Thin.otf', family: 'Pretendard JP', weight: '100' },
-    { file: 'PretendardJP-ExtraLight.otf', family: 'Pretendard JP', weight: '200' },
-    { file: 'PretendardJP-Light.otf', family: 'Pretendard JP', weight: '300' },
-    { file: 'PretendardJP-Regular.otf', family: 'Pretendard JP', weight: '400' },
-    { file: 'PretendardJP-Medium.otf', family: 'Pretendard JP', weight: '500' },
-    { file: 'PretendardJP-SemiBold.otf', family: 'Pretendard JP', weight: '600' },
-    { file: 'PretendardJP-Bold.otf', family: 'Pretendard JP', weight: '700' },
-    { file: 'PretendardJP-ExtraBold.otf', family: 'Pretendard JP', weight: '800' },
-    { file: 'PretendardJP-Black.otf', family: 'Pretendard JP', weight: '900' },
-    { file: 'GmarketSansTTFLight.ttf', family: 'Gmarket Sans TTF', weight: '300' },
-    { file: 'GmarketSansTTFMedium.ttf', family: 'Gmarket Sans TTF', weight: '500' },
-    { file: 'GmarketSansTTFBold.ttf', family: 'Gmarket Sans TTF', weight: '700' },
-    { file: 'GmarketSansLight.otf', family: 'Gmarket Sans', weight: '300' },
-    { file: 'GmarketSansMedium.otf', family: 'Gmarket Sans', weight: '500' },
-    { file: 'GmarketSansBold.otf', family: 'Gmarket Sans', weight: '700' },
-    { file: 'NotoSansJP-Thin.ttf', family: 'Noto Sans JP', weight: '100' },
-    { file: 'NotoSansJP-ExtraLight.ttf', family: 'Noto Sans JP', weight: '200' },
-    { file: 'NotoSansJP-Light.ttf', family: 'Noto Sans JP', weight: '300' },
-    { file: 'NotoSansJP-Regular.ttf', family: 'Noto Sans JP', weight: '400' },
-    { file: 'NotoSansJP-Medium.ttf', family: 'Noto Sans JP', weight: '500' },
-    { file: 'NotoSansJP-SemiBold.ttf', family: 'Noto Sans JP', weight: '600' },
-    { file: 'NotoSansJP-Bold.ttf', family: 'Noto Sans JP', weight: '700' },
-    { file: 'NotoSansJP-ExtraBold.ttf', family: 'Noto Sans JP', weight: '800' },
-    { file: 'NotoSansJP-Black.ttf', family: 'Noto Sans JP', weight: '900' },
-  ]
 
   const fontFaceRules: string[] = []
-  await Promise.all(entries.map(async ({ file, family, weight }) => {
+  await Promise.all(FONT_REGISTRY.map(async ({ file, family, weight }) => {
     const fontPath = path.join(fontDir, file)
     try {
       await access(fontPath)
@@ -263,7 +199,7 @@ async function exportSheetToRsvgPdf(
       '--page-height', `${(pageSizePt.heightPt / 72).toFixed(6)}in`,
       '-o', pdfPath,
       svgPath,
-    ])
+    ], { timeout: 30_000 })
     return await readFile(pdfPath)
   } finally {
     await unlink(svgPath).catch(() => {})
@@ -491,6 +427,14 @@ async function renderSvgToRaster(svgString: string, rasterMode: RasterMode = 'hi
 }
 
 export async function exportToImage(
+  svgString: string,
+  format: 'png' | 'jpeg' = 'png',
+  options?: { rasterMode?: RasterMode },
+): Promise<Buffer> {
+  return exportLimiter(() => _exportToImageInternal(svgString, format, options))
+}
+
+async function _exportToImageInternal(
   svgString: string,
   format: 'png' | 'jpeg' = 'png',
   options?: { rasterMode?: RasterMode },
@@ -772,6 +716,15 @@ export async function exportSheetsToPDF(
   printSettings: TemplatePrintSettings | null | undefined,
   documentTitle?: string,
 ): Promise<Buffer> {
+  return exportLimiter(() => _exportSheetsToPDFInternal(sheets, values, printSettings, documentTitle))
+}
+
+async function _exportSheetsToPDFInternal(
+  sheets: TemplateSheetDetail[],
+  values: ProjectValuesBySheet,
+  printSettings: TemplatePrintSettings | null | undefined,
+  documentTitle?: string,
+): Promise<Buffer> {
   const orderedSheets = [...sheets].sort((a, b) => a.order - b.order)
   const pageSizes = orderedSheets.map(sheet => getSheetPdfSizePt(sheet))
   await assertGhostscriptAvailable()
@@ -783,7 +736,7 @@ export async function exportSheetsToPDF(
   // Phase 4: rsvg-convert vector pipeline — bypasses Puppeteer RGB intermediate
   if (useRsvg && renderDecision.strategy !== 'raster-fidelity') {
     try {
-      const exportDir = path.join(process.cwd(), 'exports')
+      const exportDir = path.join(os.tmpdir(), 'printed-export')
       await mkdir(exportDir, { recursive: true })
       const tmpId = crypto.randomUUID()
 
@@ -848,7 +801,7 @@ async function exportPdfToManagedCmyk(
   rgbPdfBuffer: Buffer,
   profile: Awaited<ReturnType<typeof resolveTemplatePrintProfile>>,
 ): Promise<Buffer> {
-  const exportDir = path.join(process.cwd(), 'exports')
+  const exportDir = path.join(os.tmpdir(), 'printed-export')
   await mkdir(exportDir, { recursive: true })
 
   const tmpId = crypto.randomUUID()
@@ -870,13 +823,19 @@ async function exportPdfToManagedCmyk(
       `-sDefaultRGBProfile=${profile.sourceRgbIccPath}`,
       `-sOutputICCProfile=${profile.outputIccPath}`,
       '-sColorConversionStrategy=CMYK',
-      '-dProcessColorModel=/DeviceCMYK',
       '-dRenderingIntent=1',
       '-dBlackPointCompensation=true',
+      '-dDeviceGrayToK=true',
+      '-dAutoFilterColorImages=false',
+      '-dColorImageFilter=/FlateEncode',
+      '-dAutoFilterGrayImages=false',
+      '-dGrayImageFilter=/FlateEncode',
+      '-dDownsampleColorImages=false',
+      '-dDownsampleGrayImages=false',
       '-dOverprint=/simulate',
       `-sOutputFile=${cmykPath}`,
       rgbPath,
-    ])
+    ], { timeout: 60_000 })
     return await readFile(cmykPath)
   } catch (error) {
     console.error('Ghostscript CMYK conversion failed.', error)

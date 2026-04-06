@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getProjectPersistenceCapabilities, normalizeActorIdentity, recordProjectActivityIfSupported } from '@/lib/project-activity.server'
@@ -12,22 +13,17 @@ export async function GET(req: NextRequest) {
   const templateId = req.nextUrl.searchParams.get('templateId')
   const capabilities = await getProjectPersistenceCapabilities(prisma)
 
+  const listSelect: Prisma.ProjectSelect = {
+    id: true,
+    name: true,
+    templateId: true,
+    createdAt: true,
+    updatedAt: true,
+    ...(capabilities.projectActorColumns ? { createdByActorName: true, lastEditedByActorName: true } : {}),
+    ...(capabilities.projectExportColumns ? { lastExportedAt: true, lastExportedByActorName: true } : {}),
+  }
   const projects = await prisma.project.findMany({
-    select: {
-      id: true,
-      name: true,
-      templateId: true,
-      createdAt: true,
-      updatedAt: true,
-      ...(capabilities.projectActorColumns ? {
-        createdByActorName: true,
-        lastEditedByActorName: true,
-      } : {}),
-      ...(capabilities.projectExportColumns ? {
-        lastExportedAt: true,
-        lastExportedByActorName: true,
-      } : {}),
-    } as any,
+    select: listSelect,
     where: {
       userId: session.user!.id!,
       ...(templateId ? { templateId } : {}),
@@ -106,11 +102,8 @@ export async function POST(req: NextRequest) {
         createdAt: true,
         updatedAt: true,
         templateId: true,
-        ...(capabilities.projectActorColumns ? {
-          createdByActorName: true,
-          lastEditedByActorName: true,
-        } : {}),
-      } as any,
+        ...(capabilities.projectActorColumns ? { createdByActorName: true, lastEditedByActorName: true } : {}),
+      } satisfies Prisma.ProjectSelect,
     }) as unknown as {
       createdAt: Date
       createdByActorName?: string | null

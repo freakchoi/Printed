@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { auth } from '@/lib/auth'
 import { getProjectPersistenceCapabilities, normalizeActorIdentity, recordProjectActivityIfSupported } from '@/lib/project-activity.server'
 import { prisma } from '@/lib/prisma'
@@ -104,31 +105,32 @@ export async function POST(req: NextRequest) {
     }
 
     // Enum 값 검증
-    if (selectionMode && !VALID_SELECTION_MODES.includes(selectionMode as any)) {
+    if (selectionMode && !(VALID_SELECTION_MODES as readonly string[]).includes(selectionMode)) {
       return NextResponse.json({ error: '잘못된 selectionMode 값' }, { status: 400 })
     }
-    if (imageMode && !VALID_IMAGE_MODES.includes(imageMode as any)) {
+    if (imageMode && !(VALID_IMAGE_MODES as readonly string[]).includes(imageMode)) {
       return NextResponse.json({ error: '잘못된 imageMode 값' }, { status: 400 })
     }
-    if (combinedDirection && !VALID_COMBINED_DIRECTIONS.includes(combinedDirection as any)) {
+    if (combinedDirection && !(VALID_COMBINED_DIRECTIONS as readonly string[]).includes(combinedDirection)) {
       return NextResponse.json({ error: '잘못된 combinedDirection 값' }, { status: 400 })
     }
-    if (rasterMode && !VALID_RASTER_MODES.includes(rasterMode as any)) {
+    if (rasterMode && !(VALID_RASTER_MODES as readonly string[]).includes(rasterMode)) {
       return NextResponse.json({ error: '잘못된 rasterMode 값' }, { status: 400 })
     }
 
+    const exportSelect: Prisma.ProjectSelect = {
+      id: true,
+      name: true,
+      values: true,
+      sheetSnapshot: true,
+      templateId: true,
+      template: {
+        include: { sheets: { select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true } } },
+      },
+    }
     const project = await prisma.project.findFirst({
       where: { id: projectId, userId: getUserId(session) },
-      select: {
-        id: true,
-        name: true,
-        values: true,
-        sheetSnapshot: true,
-        templateId: true,
-        template: {
-          include: { sheets: { select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true } } },
-        },
-      } as any,
+      select: exportSelect,
     }) as unknown as {
       id: string
       name: string

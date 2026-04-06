@@ -2,6 +2,7 @@ import path from 'path'
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom'
 import { createCanvas, registerFont } from 'canvas'
 import type { FieldAlignment, FieldSourceType, FieldWrapMode, SheetFieldValue, TemplateField } from '@/lib/template-model'
+import { FONT_REGISTRY, MEASUREMENT_FONT_EXTRAS } from '@/lib/fonts'
 
 const serializer = new XMLSerializer()
 type ParsedSvgDocument = ReturnType<typeof parseSvgDocument>
@@ -33,41 +34,9 @@ function getFontPath(filename: string) {
   return path.join(process.cwd(), 'public', 'fonts', filename)
 }
 
-const MEASUREMENT_FONT_REGISTRY: Array<{ path: string; family: string; weight?: string }> = [
-  { path: getFontPath('Pretendard-Thin.otf'), family: 'Pretendard', weight: '100' },
-  { path: getFontPath('Pretendard-ExtraLight.otf'), family: 'Pretendard', weight: '200' },
-  { path: getFontPath('Pretendard-Light.otf'), family: 'Pretendard', weight: '300' },
-  { path: getFontPath('Pretendard-Regular.otf'), family: 'Pretendard', weight: '400' },
-  { path: getFontPath('Pretendard-Medium.otf'), family: 'Pretendard', weight: '500' },
-  { path: getFontPath('Pretendard-SemiBold.otf'), family: 'Pretendard', weight: '600' },
-  { path: getFontPath('Pretendard-Bold.otf'), family: 'Pretendard', weight: '700' },
-  { path: getFontPath('Pretendard-ExtraBold.otf'), family: 'Pretendard', weight: '800' },
-  { path: getFontPath('Pretendard-Black.otf'), family: 'Pretendard', weight: '900' },
-  { path: getFontPath('PretendardJP-Thin.otf'), family: 'Pretendard JP', weight: '100' },
-  { path: getFontPath('PretendardJP-ExtraLight.otf'), family: 'Pretendard JP', weight: '200' },
-  { path: getFontPath('PretendardJP-Light.otf'), family: 'Pretendard JP', weight: '300' },
-  { path: getFontPath('PretendardJP-Regular.otf'), family: 'Pretendard JP', weight: '400' },
-  { path: getFontPath('PretendardJP-Medium.otf'), family: 'Pretendard JP', weight: '500' },
-  { path: getFontPath('PretendardJP-SemiBold.otf'), family: 'Pretendard JP', weight: '600' },
-  { path: getFontPath('PretendardJP-Bold.otf'), family: 'Pretendard JP', weight: '700' },
-  { path: getFontPath('PretendardJP-ExtraBold.otf'), family: 'Pretendard JP', weight: '800' },
-  { path: getFontPath('PretendardJP-Black.otf'), family: 'Pretendard JP', weight: '900' },
-  { path: getFontPath('GmarketSansTTFLight.ttf'), family: 'Gmarket Sans TTF', weight: '300' },
-  { path: getFontPath('GmarketSansTTFMedium.ttf'), family: 'Gmarket Sans TTF', weight: '500' },
-  { path: getFontPath('GmarketSansTTFBold.ttf'), family: 'Gmarket Sans TTF', weight: '700' },
-  { path: getFontPath('GmarketSansLight.otf'), family: 'Gmarket Sans', weight: '300' },
-  { path: getFontPath('GmarketSansMedium.otf'), family: 'Gmarket Sans', weight: '500' },
-  { path: getFontPath('GmarketSansBold.otf'), family: 'Gmarket Sans', weight: '700' },
-  { path: getFontPath('NotoSansJP-Thin.ttf'), family: 'Noto Sans JP', weight: '100' },
-  { path: getFontPath('NotoSansJP-ExtraLight.ttf'), family: 'Noto Sans JP', weight: '200' },
-  { path: getFontPath('NotoSansJP-Light.ttf'), family: 'Noto Sans JP', weight: '300' },
-  { path: getFontPath('NotoSansJP-Regular.ttf'), family: 'Noto Sans JP', weight: '400' },
-  { path: getFontPath('NotoSansJP-Medium.ttf'), family: 'Noto Sans JP', weight: '500' },
-  { path: getFontPath('NotoSansJP-SemiBold.ttf'), family: 'Noto Sans JP', weight: '600' },
-  { path: getFontPath('NotoSansJP-Bold.ttf'), family: 'Noto Sans JP', weight: '700' },
-  { path: getFontPath('NotoSansJP-ExtraBold.ttf'), family: 'Noto Sans JP', weight: '800' },
-  { path: getFontPath('NotoSansJP-Black.ttf'), family: 'Noto Sans JP', weight: '900' },
-  { path: '/System/Library/Fonts/Supplemental/AppleMyungjo.ttf', family: 'AppleMyungjo', weight: '400' },
+const MEASUREMENT_FONT_REGISTRY = [
+  ...FONT_REGISTRY.map(({ file, family, weight }) => ({ path: getFontPath(file), family, weight })),
+  ...MEASUREMENT_FONT_EXTRAS,
 ]
 
 function ensureMeasurementFontsRegistered() {

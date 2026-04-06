@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { FileStack, FileText, Image as ImageIconLucide, ImageIcon, Layers3, ScanSearch, StretchHorizontal, StretchVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,16 +54,39 @@ export function ExportDialog({
   onRasterModeChange,
   onSelectionModeChange,
 }: ExportDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      const target = e.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-      onClose()
+      if (e.key === 'Escape') {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') onClose()
+        return
+      }
+      if (e.key !== 'Tab' || !dialogRef.current) return
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus() }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus() }
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
+
+  useEffect(() => {
+    if (!isOpen || !dialogRef.current) return
+    const first = dialogRef.current.querySelector<HTMLElement>(
+      'button:not([disabled]), input:not([disabled])'
+    )
+    first?.focus()
+  }, [isOpen])
 
   if (!isOpen) return null
   const isConfirmDisabled = isExporting || !fileName.trim()
@@ -102,7 +125,7 @@ export function ExportDialog({
 
   return (
     <div className="motion-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6 backdrop-blur-sm" onClick={onClose}>
-      <div className="motion-modal-sheet motion-modal-card flex max-h-[calc(100dvh-48px)] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div ref={dialogRef} className="motion-modal-sheet motion-modal-card flex max-h-[calc(100dvh-48px)] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border/80 bg-background shadow-[0_24px_60px_rgba(2,8,23,0.18)]" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="border-b px-6 py-5">
           <p className="text-lg font-semibold tracking-tight text-foreground">내보내기</p>
           <p className="mt-1 text-sm text-muted-foreground">파일 이름과 저장 방식을 선택한 뒤 포맷별 옵션을 조정합니다.</p>

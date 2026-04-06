@@ -8,7 +8,10 @@ const execFileAsync = promisify(execFile)
 function verifySignature(body: string, signature: string | null, secret: string): boolean {
   if (!signature) return false
   const expected = `sha256=${crypto.createHmac('sha256', secret).update(body).digest('hex')}`
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
+  const a = Buffer.from(signature)
+  const b = Buffer.from(expected)
+  if (a.byteLength !== b.byteLength) return false
+  return crypto.timingSafeEqual(a, b)
 }
 
 export async function POST(req: NextRequest) {

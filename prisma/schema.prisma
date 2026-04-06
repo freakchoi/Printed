@@ -85,6 +85,9 @@ model Project {
   user                      User              @relation(fields: [userId], references: [id])
   template                  Template          @relation(fields: [templateId], references: [id])
   activities                ProjectActivity[]
+
+  @@index([userId, updatedAt])
+  @@index([userId, templateId])
 }
 
 model ProjectActivity {

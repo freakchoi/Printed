@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { auth } from '@/lib/auth'
 import { getProjectPersistenceCapabilities, normalizeActorIdentity, recordProjectActivityIfSupported } from '@/lib/project-activity.server'
 import { prisma } from '@/lib/prisma'
@@ -27,33 +28,23 @@ export async function POST(
   const actor = normalizeActorIdentity(body)
 
   const { id } = await params
-  const project = await prisma.project.findFirst({
-    where: { id, userId: session.user!.id! },
-    select: {
-      id: true,
-      name: true,
-      values: true,
-      sheetSnapshot: true,
-      templateId: true,
-      template: {
-        include: {
-          sheets: {
-            select: {
-              id: true,
-              name: true,
-              order: true,
-              svgPath: true,
-              fields: true,
-              width: true,
-              height: true,
-              unit: true,
-              widthPx: true,
-              heightPx: true,
-            },
-          },
+  const duplicateSourceSelect: Prisma.ProjectSelect = {
+    id: true,
+    name: true,
+    values: true,
+    sheetSnapshot: true,
+    templateId: true,
+    template: {
+      include: {
+        sheets: {
+          select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true },
         },
       },
-    } as any,
+    },
+  }
+  const project = await prisma.project.findFirst({
+    where: { id, userId: session.user!.id! },
+    select: duplicateSourceSelect,
   }) as unknown as {
     id: string
     name: string
@@ -103,11 +94,8 @@ export async function POST(
         name: true,
         createdAt: true,
         updatedAt: true,
-        ...(capabilities.projectActorColumns ? {
-          createdByActorName: true,
-          lastEditedByActorName: true,
-        } : {}),
-      } as any,
+        ...(capabilities.projectActorColumns ? { createdByActorName: true, lastEditedByActorName: true } : {}),
+      } satisfies Prisma.ProjectSelect,
     }) as unknown as {
       createdAt: Date
       createdByActorName?: string | null
