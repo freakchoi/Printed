@@ -115,8 +115,8 @@ export function ExportDialog({
     { value: 'separate' as const, label: '각 장 개별 저장', description: '대지별로 개별 파일 저장', Icon: Layers3 },
   ]
   const combinedDirectionOptions = [
-    { value: 'horizontal' as const, label: '가로 합치기', description: '좌우로 이어 붙이기', Icon: StretchHorizontal },
-    { value: 'vertical' as const, label: '세로 합치기', description: '상하로 이어 붙이기', Icon: StretchVertical },
+    { value: 'horizontal' as const, label: '가로 합치기', description: '좌우로 이어 붙이기', Icon: StretchVertical },
+    { value: 'vertical' as const, label: '세로 합치기', description: '상하로 이어 붙이기', Icon: StretchHorizontal },
   ]
   const rasterOptions = [
     { value: 'high-res' as const, label: '고해상도', description: '4배 크기로 렌더링' },
