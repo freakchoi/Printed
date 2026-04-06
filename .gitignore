@@ -44,7 +44,9 @@ next-env.d.ts
 /uploads/icc/
 /exports
 .playwright-cli/
-*.db
+*.db-journal
+*.db-wal
+*.db-shm
 .env.local
 
 # fonts (copy manually per README)
