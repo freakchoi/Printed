@@ -41,8 +41,11 @@ yarn-error.log*
 next-env.d.ts
 
 # project specific
-/uploads
 /exports
 .playwright-cli/
 *.db
 .env.local
+
+# fonts (copy manually per README)
+/public/fonts/*.otf
+/public/fonts/*.ttf
