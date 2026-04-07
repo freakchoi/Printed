@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { unlink, readFile, mkdir, writeFile, access } from 'fs/promises'
+import { unlink, readFile, mkdir, writeFile } from 'fs/promises'
 import os from 'os'
 import path from 'path'
 import crypto from 'crypto'
@@ -148,107 +148,6 @@ type PrintedPdfMetadata = {
   title?: string
 }
 
-async function isRsvgConvertAvailable(): Promise<boolean> {
-  try {
-    await execFileAsync('rsvg-convert', ['--version'])
-    return true
-  } catch {
-    return false
-  }
-}
-
-async function embedFontsInSVG(svgContent: string): Promise<string> {
-  const fontDir = path.join(process.cwd(), 'public', 'fonts')
-
-  const fontFaceRules: string[] = []
-  await Promise.all(FONT_REGISTRY.map(async ({ file, family, weight, psAlias }) => {
-    const fontPath = path.join(fontDir, file)
-    try {
-      await access(fontPath)
-      const data = await readFile(fontPath)
-      const ext = path.extname(file).slice(1).toLowerCase()
-      const mime = ext === 'otf' ? 'font/otf' : 'font/ttf'
-      const src = `url(data:${mime};base64,${data.toString('base64')})`
-      fontFaceRules.push(
-        `@font-face{font-family:'${family}';src:${src};font-weight:${weight};font-style:normal;}`,
-      )
-      if (psAlias) {
-        fontFaceRules.push(
-          `@font-face{font-family:'${psAlias}';src:${src};font-weight:400;font-style:normal;}`,
-        )
-      }
-    } catch {
-      // Font file not found — skip
-    }
-  }))
-
-  if (fontFaceRules.length === 0) return svgContent
-
-  const styleBlock = `<defs><style>${fontFaceRules.join('')}</style></defs>`
-  // Inject after opening <svg...> tag
-  return svgContent.replace(/(<svg[^>]*>)/i, `$1${styleBlock}`)
-}
-
-/**
- * rsvg-convert는 SVG 내 @font-face CSS를 무시하고 fontconfig만 사용한다.
- * Illustrator가 내보낸 PostScript 이름(GmarketSansTTFLight, PretendardJP-Light-83pv-RKSJ-H 등)은
- * fontconfig에 등록되지 않으므로, fontconfig가 인식할 수 있는
- * canonical family + explicit font-weight로 치환한다.
- */
-function resolvePostScriptFontNames(svgContent: string): string {
-  const aliasMap = new Map<string, { family: string; weight: string }>()
-  for (const { family, weight, psAlias } of FONT_REGISTRY) {
-    if (psAlias) aliasMap.set(psAlias, { family, weight })
-  }
-  if (aliasMap.size === 0) return svgContent
-
-  return svgContent.replace(/<([a-zA-Z][a-zA-Z0-9:]*)[^>]*>/g, (tag) => {
-    const familyMatch = tag.match(/font-family=(['"])(.*?)\1/)
-    if (!familyMatch) return tag
-
-    const firstToken = familyMatch[2].split(',')[0].trim().replace(/^['"]|['"]$/g, '')
-    const resolved = aliasMap.get(firstToken)
-    if (!resolved) return tag
-
-    let newTag = tag.replace(/font-family=(['"])(.*?)\1/, `font-family="${resolved.family}"`)
-    if (!/font-weight=/.test(newTag)) {
-      newTag = newTag.replace(/font-family=/, `font-weight="${resolved.weight}" font-family=`)
-    }
-    return newTag
-  })
-}
-
-async function exportSheetToRsvgPdf(
-  svgContent: string,
-  pageSizePt: { widthPt: number; heightPt: number },
-  exportDir: string,
-  tmpId: string,
-  sheetIndex: number,
-): Promise<Buffer> {
-  const svgPath = path.join(exportDir, `${tmpId}_sheet${sheetIndex}.svg`)
-  const pdfPath = path.join(exportDir, `${tmpId}_sheet${sheetIndex}.pdf`)
-
-  const resolved = resolvePostScriptFontNames(svgContent)
-  const svgWithFonts = await embedFontsInSVG(resolved)
-  await writeFile(svgPath, svgWithFonts, 'utf-8')
-
-  try {
-    // Use 96 DPI to match CSS pixel → physical size convention (1px = 1/96 inch)
-    await execFileAsync('rsvg-convert', [
-      '-f', 'pdf',
-      '-d', '96',
-      '-p', '96',
-      '--page-width', `${(pageSizePt.widthPt / 72).toFixed(6)}in`,
-      '--page-height', `${(pageSizePt.heightPt / 72).toFixed(6)}in`,
-      '-o', pdfPath,
-      svgPath,
-    ], { timeout: 30_000 })
-    return await readFile(pdfPath)
-  } finally {
-    await unlink(svgPath).catch(() => {})
-    await unlink(pdfPath).catch(() => {})
-  }
-}
 
 async function assertGhostscriptAvailable() {
   try {
@@ -775,34 +674,7 @@ async function _exportSheetsToPDFInternal(
   await assertGhostscriptAvailable()
   const printProfile = await resolveTemplatePrintProfile(printSettings)
   const renderDecision = resolvePdfRenderDecision(orderedSheets)
-  const useRsvg = await isRsvgConvertAvailable()
-  console.info('[export] PDF render strategy', renderDecision, { rsvg: useRsvg })
-
-  // Phase 4: rsvg-convert vector pipeline — bypasses Puppeteer RGB intermediate
-  if (useRsvg && renderDecision.strategy !== 'raster-fidelity') {
-    try {
-      const exportDir = path.join(os.tmpdir(), 'printed-export')
-      await mkdir(exportDir, { recursive: true })
-      const tmpId = crypto.randomUUID()
-
-      const sheetPdfs: Buffer[] = []
-      for (const [index, sheet] of orderedSheets.entries()) {
-        const svgContent = buildExportSVG(sheet.svgContent, values[sheet.id] ?? {})
-        const pageSizePt = pageSizes[index]
-        const sheetPdf = await exportSheetToRsvgPdf(svgContent, pageSizePt, exportDir, tmpId, index)
-        sheetPdfs.push(sheetPdf)
-      }
-
-      const mergedPdf = await mergePdfBuffers(sheetPdfs)
-      const recomposedPdf = await recomposePdfPagesToExactSize(mergedPdf, pageSizes)
-      const cmykPdf = await exportPdfToManagedCmyk(recomposedPdf, printProfile, options)
-      return fixPdfPageBoxes(cmykPdf, pageSizes, { title: documentTitle })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.warn('[export] rsvg-convert failed, falling back to Puppeteer:', message)
-      // Fall through to Puppeteer pipeline
-    }
-  }
+  console.info('[export] PDF render strategy', renderDecision)
 
   if (renderDecision.strategy === 'raster-fidelity') {
     try {
