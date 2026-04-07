@@ -189,6 +189,35 @@ async function embedFontsInSVG(svgContent: string): Promise<string> {
   return svgContent.replace(/(<svg[^>]*>)/i, `$1${styleBlock}`)
 }
 
+/**
+ * rsvg-convert는 SVG 내 @font-face CSS를 무시하고 fontconfig만 사용한다.
+ * Illustrator가 내보낸 PostScript 이름(GmarketSansTTFLight, PretendardJP-Light-83pv-RKSJ-H 등)은
+ * fontconfig에 등록되지 않으므로, fontconfig가 인식할 수 있는
+ * canonical family + explicit font-weight로 치환한다.
+ */
+function resolvePostScriptFontNames(svgContent: string): string {
+  const aliasMap = new Map<string, { family: string; weight: string }>()
+  for (const { family, weight, psAlias } of FONT_REGISTRY) {
+    if (psAlias) aliasMap.set(psAlias, { family, weight })
+  }
+  if (aliasMap.size === 0) return svgContent
+
+  return svgContent.replace(/<([a-zA-Z][a-zA-Z0-9:]*)[^>]*>/g, (tag) => {
+    const familyMatch = tag.match(/font-family=(['"])(.*?)\1/)
+    if (!familyMatch) return tag
+
+    const firstToken = familyMatch[2].split(',')[0].trim().replace(/^['"]|['"]$/g, '')
+    const resolved = aliasMap.get(firstToken)
+    if (!resolved) return tag
+
+    let newTag = tag.replace(/font-family=(['"])(.*?)\1/, `font-family="${resolved.family}"`)
+    if (!/font-weight=/.test(newTag)) {
+      newTag = newTag.replace(/font-family=/, `font-weight="${resolved.weight}" font-family=`)
+    }
+    return newTag
+  })
+}
+
 async function exportSheetToRsvgPdf(
   svgContent: string,
   pageSizePt: { widthPt: number; heightPt: number },
@@ -199,7 +228,8 @@ async function exportSheetToRsvgPdf(
   const svgPath = path.join(exportDir, `${tmpId}_sheet${sheetIndex}.svg`)
   const pdfPath = path.join(exportDir, `${tmpId}_sheet${sheetIndex}.pdf`)
 
-  const svgWithFonts = await embedFontsInSVG(svgContent)
+  const resolved = resolvePostScriptFontNames(svgContent)
+  const svgWithFonts = await embedFontsInSVG(resolved)
   await writeFile(svgPath, svgWithFonts, 'utf-8')
 
   try {
