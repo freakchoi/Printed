@@ -1477,7 +1477,7 @@ export default function EditorPage() {
             <span className="max-w-28 truncate">{actorName || '작업자 설정'}</span>
           </button>
           <ThemeToggle />
-          <button type="button" className="rounded-md p-2 transition-colors hover:bg-accent" onClick={() => signOut({ callbackUrl: '/login' })} aria-label="로그아웃">
+          <button type="button" className="rounded-md p-2 transition-colors hover:bg-accent" onClick={async () => { await signOut({ redirect: false }); window.location.href = '/login' }} aria-label="로그아웃">
             <LogOut size={16} />
           </button>
         </div>

@@ -59,10 +59,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // 로그인 직후에만 DB 조회 (authorize()에서 반환한 user 객체 기반)
         token.id = user.id
-        const userId = user.id as string | undefined
-        const resolvedRole = await resolveUserRole(userId)
+        const resolvedRole = await resolveUserRole(user.id as string)
+        if (resolvedRole) token.role = resolvedRole
+      } else if (!token.role) {
+        // 기존 세션 토큰에 role이 없는 경우 DB에서 보완
+        const resolvedRole = await resolveUserRole((token.id ?? token.sub) as string)
         if (resolvedRole) token.role = resolvedRole
       }
       return token
