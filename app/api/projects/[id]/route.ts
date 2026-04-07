@@ -326,13 +326,14 @@ export async function DELETE(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const userId = session.user?.id
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const isAdmin = session.user?.role === 'ADMIN'
   const capabilities = await getProjectPersistenceCapabilities(prisma)
   const body = await req.json().catch(() => ({})) as { actorClientId?: string; actorName?: string }
   const actor = normalizeActorIdentity(body)
 
   const { id } = await params
   const project = await prisma.project.findFirst({
-    where: { id, userId },
+    where: { id, ...(isAdmin ? {} : { userId }) },
     select: {
       id: true,
       name: true,

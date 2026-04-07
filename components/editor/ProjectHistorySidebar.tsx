@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Copy, Plus } from 'lucide-react'
+import { Copy, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ProjectSummary } from '@/lib/template-model'
@@ -10,11 +10,13 @@ interface ProjectHistorySidebarProps {
   activeProjectId: string | null
   error?: string | null
   isDirty: boolean
+  isAdmin?: boolean
   isLoading?: boolean
   onRetry?: () => void
   projects: ProjectSummary[]
   selectedTemplateName?: string | null
   onCreateProject: () => void
+  onDeleteProject?: (projectId: string) => void
   onDuplicateProject: (projectId: string) => void
   onOpenProject: (projectId: string) => void
 }
@@ -32,11 +34,13 @@ export function ProjectHistorySidebar({
   activeProjectId,
   error = null,
   isDirty,
+  isAdmin = false,
   isLoading = false,
   onRetry,
   projects,
   selectedTemplateName,
   onCreateProject,
+  onDeleteProject,
   onDuplicateProject,
   onOpenProject,
 }: ProjectHistorySidebarProps) {
@@ -99,7 +103,7 @@ export function ProjectHistorySidebar({
                   type="button"
                   onClick={() => onOpenProject(project.id)}
                   className={cn(
-                    'editor-hover-lift editor-press block w-full px-4 py-3 pr-12 text-left transition-colors',
+                    'editor-hover-lift editor-press block w-full px-4 py-3 pr-20 text-left transition-colors',
                     isActive ? 'bg-primary/6' : 'hover:bg-accent/60',
                   )}
                 >
@@ -110,21 +114,37 @@ export function ProjectHistorySidebar({
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">{secondaryText}</p>
                 </button>
-                <button
-                  type="button"
-                  onClick={event => {
-                    event.stopPropagation()
-                    onDuplicateProject(project.id)
-                  }}
-                  className={cn(
-                    'motion-floating absolute right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:bg-background focus-visible:text-foreground focus-visible:outline-none',
-                    isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
-                  )}
-                  aria-label="이 작업 복제"
-                  title="이 작업 복제"
-                >
-                  <Copy size={14} />
-                </button>
+                <div className={cn(
+                  'motion-floating absolute right-2 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5',
+                  isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+                )}>
+                  <button
+                    type="button"
+                    onClick={event => {
+                      event.stopPropagation()
+                      onDuplicateProject(project.id)
+                    }}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:bg-background focus-visible:text-foreground focus-visible:outline-none"
+                    aria-label="이 작업 복제"
+                    title="이 작업 복제"
+                  >
+                    <Copy size={13} />
+                  </button>
+                  {isAdmin && onDeleteProject ? (
+                    <button
+                      type="button"
+                      onClick={event => {
+                        event.stopPropagation()
+                        onDeleteProject(project.id)
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive focus-visible:outline-none"
+                      aria-label="이 작업 삭제"
+                      title="이 작업 삭제"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  ) : null}
+                </div>
                 <div className="border-t" />
               </div>
             )

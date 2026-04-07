@@ -1503,11 +1503,13 @@ export default function EditorPage() {
               activeProjectId={activeProjectId}
               error={projectsError}
               isDirty={isDirty}
+              isAdmin={canManageTemplates}
               isLoading={isProjectsLoading}
               onRetry={selectedTemplateId ? () => void loadProjects(selectedTemplateId) : undefined}
               projects={projects}
               selectedTemplateName={selectedTemplate?.name ?? templateDetail?.name ?? null}
               onCreateProject={handleCreateProject}
+              onDeleteProject={handleDeleteProject}
               onDuplicateProject={handleDuplicateProject}
               onOpenProject={handleOpenProject}
             />
