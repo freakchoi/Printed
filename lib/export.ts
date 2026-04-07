@@ -78,9 +78,16 @@ export function buildExportSVG(svgString: string, values: ProjectValuesBySheet[s
 function buildFontFaceCSS(): string {
   const fontDir = path.join(process.cwd(), 'public', 'fonts')
   return FONT_REGISTRY
-    .map(({ file, family, weight }) =>
-      `@font-face { font-family: '${family}'; src: url('file://${path.join(fontDir, file)}'); font-weight: ${weight}; font-style: normal; }`,
-    )
+    .flatMap(({ file, family, weight, psAlias }) => {
+      const src = `url('file://${path.join(fontDir, file)}')`
+      const rules = [
+        `@font-face { font-family: '${family}'; src: ${src}; font-weight: ${weight}; font-style: normal; }`,
+      ]
+      if (psAlias) {
+        rules.push(`@font-face { font-family: '${psAlias}'; src: ${src}; font-weight: 400; font-style: normal; }`)
+      }
+      return rules
+    })
     .join('\n')
 }
 
@@ -154,16 +161,22 @@ async function embedFontsInSVG(svgContent: string): Promise<string> {
   const fontDir = path.join(process.cwd(), 'public', 'fonts')
 
   const fontFaceRules: string[] = []
-  await Promise.all(FONT_REGISTRY.map(async ({ file, family, weight }) => {
+  await Promise.all(FONT_REGISTRY.map(async ({ file, family, weight, psAlias }) => {
     const fontPath = path.join(fontDir, file)
     try {
       await access(fontPath)
       const data = await readFile(fontPath)
       const ext = path.extname(file).slice(1).toLowerCase()
       const mime = ext === 'otf' ? 'font/otf' : 'font/ttf'
+      const src = `url(data:${mime};base64,${data.toString('base64')})`
       fontFaceRules.push(
-        `@font-face{font-family:'${family}';src:url(data:${mime};base64,${data.toString('base64')});font-weight:${weight};font-style:normal;}`,
+        `@font-face{font-family:'${family}';src:${src};font-weight:${weight};font-style:normal;}`,
       )
+      if (psAlias) {
+        fontFaceRules.push(
+          `@font-face{font-family:'${psAlias}';src:${src};font-weight:400;font-style:normal;}`,
+        )
+      }
     } catch {
       // Font file not found — skip
     }
@@ -715,8 +728,9 @@ export async function exportSheetsToPDF(
   values: ProjectValuesBySheet,
   printSettings: TemplatePrintSettings | null | undefined,
   documentTitle?: string,
+  options?: { outlineText?: boolean },
 ): Promise<Buffer> {
-  return exportLimiter(() => _exportSheetsToPDFInternal(sheets, values, printSettings, documentTitle))
+  return exportLimiter(() => _exportSheetsToPDFInternal(sheets, values, printSettings, documentTitle, options))
 }
 
 async function _exportSheetsToPDFInternal(
@@ -724,6 +738,7 @@ async function _exportSheetsToPDFInternal(
   values: ProjectValuesBySheet,
   printSettings: TemplatePrintSettings | null | undefined,
   documentTitle?: string,
+  options?: { outlineText?: boolean },
 ): Promise<Buffer> {
   const orderedSheets = [...sheets].sort((a, b) => a.order - b.order)
   const pageSizes = orderedSheets.map(sheet => getSheetPdfSizePt(sheet))
@@ -750,7 +765,7 @@ async function _exportSheetsToPDFInternal(
 
       const mergedPdf = await mergePdfBuffers(sheetPdfs)
       const recomposedPdf = await recomposePdfPagesToExactSize(mergedPdf, pageSizes)
-      const cmykPdf = await exportPdfToManagedCmyk(recomposedPdf, printProfile)
+      const cmykPdf = await exportPdfToManagedCmyk(recomposedPdf, printProfile, options)
       return fixPdfPageBoxes(cmykPdf, pageSizes, { title: documentTitle })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown'
@@ -762,7 +777,7 @@ async function _exportSheetsToPDFInternal(
   if (renderDecision.strategy === 'raster-fidelity') {
     try {
       const rasterPdf = await exportRasterizedPdfPages(orderedSheets, values)
-      const cmykPdf = await exportPdfToManagedCmyk(rasterPdf, printProfile)
+      const cmykPdf = await exportPdfToManagedCmyk(rasterPdf, printProfile, options)
       return fixPdfPageBoxes(cmykPdf, pageSizes, { title: documentTitle })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown error'
@@ -786,13 +801,13 @@ async function _exportSheetsToPDFInternal(
 
     const mergedPdf = await mergePdfBuffers(pdfPages)
     const recomposedPdf = await recomposePdfPagesToExactSize(mergedPdf, pageSizes)
-    const cmykPdf = await exportPdfToManagedCmyk(recomposedPdf, printProfile)
+    const cmykPdf = await exportPdfToManagedCmyk(recomposedPdf, printProfile, options)
     return fixPdfPageBoxes(cmykPdf, pageSizes, { title: documentTitle })
   } catch (error) {
     console.warn('Falling back to CSS page-size PDF export.', { error, reason: renderDecision.reason })
     const fallbackPdf = await exportRgbMultiPagePdf(buildExportHTMLForSheets(orderedSheets, values))
     const recomposedPdf = await recomposePdfPagesToExactSize(fallbackPdf, pageSizes)
-    const cmykPdf = await exportPdfToManagedCmyk(recomposedPdf, printProfile)
+    const cmykPdf = await exportPdfToManagedCmyk(recomposedPdf, printProfile, options)
     return fixPdfPageBoxes(cmykPdf, pageSizes, { title: documentTitle })
   }
 }
@@ -800,6 +815,7 @@ async function _exportSheetsToPDFInternal(
 async function exportPdfToManagedCmyk(
   rgbPdfBuffer: Buffer,
   profile: Awaited<ReturnType<typeof resolveTemplatePrintProfile>>,
+  options?: { outlineText?: boolean },
 ): Promise<Buffer> {
   const exportDir = path.join(os.tmpdir(), 'printed-export')
   await mkdir(exportDir, { recursive: true })
@@ -833,6 +849,7 @@ async function exportPdfToManagedCmyk(
       '-dDownsampleColorImages=false',
       '-dDownsampleGrayImages=false',
       '-dOverprint=/simulate',
+      ...(options?.outlineText ? ['-dNoOutputFonts'] : []),
       `-sOutputFile=${cmykPath}`,
       rgbPath,
     ], { timeout: 60_000 })

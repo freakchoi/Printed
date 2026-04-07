@@ -81,12 +81,13 @@ export async function POST(req: NextRequest) {
   const capabilities = await getProjectPersistenceCapabilities(prisma)
 
   try {
-    const { projectId, format, fileName, rasterMode, selectionMode = 'all', imageMode = 'combined', combinedDirection = 'horizontal', rangeStart, rangeEnd, values: rawValues, actorName, actorClientId } = await req.json() as {
+    const { projectId, format, fileName, rasterMode, selectionMode = 'all', imageMode = 'combined', combinedDirection = 'horizontal', rangeStart, rangeEnd, values: rawValues, actorName, actorClientId, outlineText } = await req.json() as {
       actorClientId?: string
       actorName?: string
       combinedDirection?: CombinedImageDirection
       fileName?: string
       imageMode?: ImageOutputMode
+      outlineText?: boolean
       projectId: string
       format: 'pdf' | 'png' | 'jpeg'
       rangeEnd?: number
@@ -225,7 +226,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const buffer = await exportSheetsToPDF(sheetSnapshot, values, template.printSettings, baseName)
+    const buffer = await exportSheetsToPDF(sheetSnapshot, values, template.printSettings, baseName, { outlineText })
     await recordExportActivity({
       actor,
       baseName,

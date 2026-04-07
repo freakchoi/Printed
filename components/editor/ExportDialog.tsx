@@ -14,6 +14,7 @@ interface ExportDialogProps {
   imageMode: ImageOutputMode
   isExporting: boolean
   isOpen: boolean
+  outlineText: boolean
   rangeEnd: number
   rangeStart: number
   rasterMode: RasterMode
@@ -25,6 +26,7 @@ interface ExportDialogProps {
   onFileNameChange: (value: string) => void
   onFormatChange: (format: 'pdf' | 'png' | 'jpeg') => void
   onImageModeChange: (mode: ImageOutputMode) => void
+  onOutlineTextChange: (value: boolean) => void
   onRangeEndChange: (value: number) => void
   onRangeStartChange: (value: number) => void
   onRasterModeChange: (mode: RasterMode) => void
@@ -38,6 +40,7 @@ export function ExportDialog({
   imageMode,
   isExporting,
   isOpen,
+  outlineText,
   rangeEnd,
   rangeStart,
   rasterMode,
@@ -49,6 +52,7 @@ export function ExportDialog({
   onFileNameChange,
   onFormatChange,
   onImageModeChange,
+  onOutlineTextChange,
   onRangeEndChange,
   onRangeStartChange,
   onRasterModeChange,
@@ -162,8 +166,37 @@ export function ExportDialog({
           </section>
 
           {format === 'pdf' ? (
-            <section className="rounded-lg border border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
-              모든 대지를 번호 순서대로 PDF로 저장합니다. 대지 헤더 UI는 출력물에 포함되지 않습니다.
+            <section className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                모든 대지를 번호 순서대로 PDF로 저장합니다. 대지 헤더 UI는 출력물에 포함되지 않습니다.
+              </div>
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={outlineText}
+                onClick={() => onOutlineTextChange(!outlineText)}
+                className={[
+                  'flex w-full items-start gap-3 rounded-lg border px-4 py-3 text-left transition-colors',
+                  outlineText
+                    ? 'border-primary/50 bg-primary/6 text-primary'
+                    : 'border-border bg-background text-foreground hover:bg-accent/40',
+                ].join(' ')}
+              >
+                <span className={[
+                  'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                  outlineText ? 'border-primary bg-primary' : 'border-border bg-background',
+                ].join(' ')}>
+                  {outlineText && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </span>
+                <span>
+                  <span className="block text-sm font-medium">텍스트 벡터화 (윤곽선 변환)</span>
+                  <span className="block text-xs leading-5 text-muted-foreground">폰트를 벡터 패스로 변환해 어떤 환경에서도 동일한 폰트로 출력됩니다. 파일 크기가 커질 수 있습니다.</span>
+                </span>
+              </button>
             </section>
           ) : (
             <>

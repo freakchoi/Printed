@@ -22,10 +22,12 @@ describe('ExportDialog', () => {
         onFileNameChange={() => {}}
         onFormatChange={() => {}}
         onImageModeChange={() => {}}
+        onOutlineTextChange={() => {}}
         onRangeEndChange={() => {}}
         onRangeStartChange={() => {}}
         onRasterModeChange={() => {}}
         onSelectionModeChange={() => {}}
+        outlineText={false}
       />,
     )
 

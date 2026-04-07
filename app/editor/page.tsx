@@ -99,6 +99,7 @@ type PendingAction =
       format: 'pdf' | 'png' | 'jpeg'
       combinedDirection?: CombinedImageDirection
       imageMode?: ImageOutputMode
+      outlineText?: boolean
       selectionMode?: ImageSelectionMode
       rasterMode?: RasterMode
       rangeStart?: number
@@ -182,6 +183,7 @@ export default function EditorPage() {
   const [imageMode, setImageMode] = useState<ImageOutputMode>('combined')
   const [combinedDirection, setCombinedDirection] = useState<CombinedImageDirection>('horizontal')
   const [rasterMode, setRasterMode] = useState<RasterMode>('high-res')
+  const [outlineText, setOutlineText] = useState(false)
   const [rangeStart, setRangeStart] = useState(1)
   const [rangeEnd, setRangeEnd] = useState(1)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
@@ -685,6 +687,7 @@ export default function EditorPage() {
     fileName,
     format,
     imageMode: nextImageMode,
+    outlineText: nextOutlineText,
     projectIdOverride,
     rangeEnd: nextRangeEnd,
     rangeStart: nextRangeStart,
@@ -695,6 +698,7 @@ export default function EditorPage() {
     fileName: string
     format: 'pdf' | 'png' | 'jpeg'
     imageMode?: ImageOutputMode
+    outlineText?: boolean
     projectIdOverride?: string | null
     rangeEnd?: number
     rangeStart?: number
@@ -720,6 +724,7 @@ export default function EditorPage() {
           fileName,
           format,
           imageMode: nextImageMode,
+          outlineText: nextOutlineText,
           projectId,
           rangeEnd: nextRangeEnd,
           rangeStart: nextRangeStart,
@@ -876,6 +881,7 @@ export default function EditorPage() {
           fileName: action.fileName,
           format: action.format,
           imageMode: action.imageMode,
+          outlineText: action.outlineText,
           projectIdOverride: savedProjectId ?? activeProjectId,
           rangeEnd: action.rangeEnd,
           rangeStart: action.rangeStart,
@@ -1197,6 +1203,7 @@ export default function EditorPage() {
       fileName: resolvedFileName,
       format: exportFormat,
       imageMode: exportFormat === 'pdf' ? undefined : imageMode,
+      outlineText: exportFormat === 'pdf' ? outlineText : undefined,
       selectionMode: exportFormat === 'pdf' ? undefined : selectionMode,
       rasterMode: exportFormat === 'pdf' ? undefined : rasterMode,
       rangeStart: exportFormat === 'pdf' ? undefined : rangeStart,
@@ -1600,6 +1607,7 @@ export default function EditorPage() {
         combinedDirection={combinedDirection}
         isExporting={isExporting}
         isOpen={isExportDialogOpen}
+        outlineText={outlineText}
         rangeEnd={rangeEnd}
         rangeStart={rangeStart}
         rasterMode={rasterMode}
@@ -1611,6 +1619,7 @@ export default function EditorPage() {
         onFileNameChange={setExportFileName}
         onFormatChange={handleExportFormatChange}
         onImageModeChange={setImageMode}
+        onOutlineTextChange={setOutlineText}
         onRangeEndChange={setRangeEnd}
         onRangeStartChange={setRangeStart}
         onRasterModeChange={setRasterMode}

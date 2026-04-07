@@ -7,6 +7,8 @@ export interface FontEntry {
   file: string
   family: string
   weight: string
+  /** SVG에서 PostScript 이름으로 직접 참조될 때 추가 등록할 alias family 이름 */
+  psAlias?: string
 }
 
 export const FONT_REGISTRY: FontEntry[] = [
@@ -28,21 +30,17 @@ export const FONT_REGISTRY: FontEntry[] = [
   { file: 'PretendardJP-Bold.otf', family: 'Pretendard JP', weight: '700' },
   { file: 'PretendardJP-ExtraBold.otf', family: 'Pretendard JP', weight: '800' },
   { file: 'PretendardJP-Black.otf', family: 'Pretendard JP', weight: '900' },
-  { file: 'GmarketSansTTFLight.ttf', family: 'Gmarket Sans TTF', weight: '300' },
-  { file: 'GmarketSansTTFMedium.ttf', family: 'Gmarket Sans TTF', weight: '500' },
-  { file: 'GmarketSansTTFBold.ttf', family: 'Gmarket Sans TTF', weight: '700' },
-  { file: 'GmarketSansLight.otf', family: 'Gmarket Sans', weight: '300' },
-  { file: 'GmarketSansMedium.otf', family: 'Gmarket Sans', weight: '500' },
-  { file: 'GmarketSansBold.otf', family: 'Gmarket Sans', weight: '700' },
-  { file: 'NotoSansJP-Thin.ttf', family: 'Noto Sans JP', weight: '100' },
-  { file: 'NotoSansJP-ExtraLight.ttf', family: 'Noto Sans JP', weight: '200' },
-  { file: 'NotoSansJP-Light.ttf', family: 'Noto Sans JP', weight: '300' },
-  { file: 'NotoSansJP-Regular.ttf', family: 'Noto Sans JP', weight: '400' },
-  { file: 'NotoSansJP-Medium.ttf', family: 'Noto Sans JP', weight: '500' },
-  { file: 'NotoSansJP-SemiBold.ttf', family: 'Noto Sans JP', weight: '600' },
-  { file: 'NotoSansJP-Bold.ttf', family: 'Noto Sans JP', weight: '700' },
-  { file: 'NotoSansJP-ExtraBold.ttf', family: 'Noto Sans JP', weight: '800' },
-  { file: 'NotoSansJP-Black.ttf', family: 'Noto Sans JP', weight: '900' },
+  // psAlias: Illustrator SVG에서 PostScript 이름으로 직접 font-family 참조 시 매칭
+  { file: 'GmarketSansTTFLight.ttf', family: 'Gmarket Sans TTF', weight: '300', psAlias: 'GmarketSansTTFLight' },
+  { file: 'GmarketSansTTFMedium.ttf', family: 'Gmarket Sans TTF', weight: '500', psAlias: 'GmarketSansTTFMedium' },
+  { file: 'GmarketSansTTFBold.ttf', family: 'Gmarket Sans TTF', weight: '700', psAlias: 'GmarketSansTTFBold' },
+{ file: 'NotoSansJP-Thin.otf', family: 'Noto Sans JP', weight: '100' },
+  { file: 'NotoSansJP-DemiLight.otf', family: 'Noto Sans JP', weight: '200' },
+  { file: 'NotoSansJP-Light.otf', family: 'Noto Sans JP', weight: '300' },
+  { file: 'NotoSansJP-Regular.otf', family: 'Noto Sans JP', weight: '400' },
+  { file: 'NotoSansJP-Medium.otf', family: 'Noto Sans JP', weight: '500' },
+  { file: 'NotoSansJP-Bold.otf', family: 'Noto Sans JP', weight: '700' },
+  { file: 'NotoSansJP-Black.otf', family: 'Noto Sans JP', weight: '900' },
 ]
 
 /** svg-parser.ts의 canvas 폰트 등록용 — 시스템 폰트 포함 */
