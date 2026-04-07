@@ -22,10 +22,11 @@ export async function GET(req: NextRequest) {
     ...(capabilities.projectActorColumns ? { createdByActorName: true, lastEditedByActorName: true } : {}),
     ...(capabilities.projectExportColumns ? { lastExportedAt: true, lastExportedByActorName: true } : {}),
   }
+  const isAdmin = session.user?.role === 'ADMIN'
   const projects = await prisma.project.findMany({
     select: listSelect,
     where: {
-      userId: session.user!.id!,
+      ...(isAdmin ? {} : { userId: session.user!.id! }),
       ...(templateId ? { templateId } : {}),
     },
     orderBy: { updatedAt: 'desc' },

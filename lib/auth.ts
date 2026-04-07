@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import type { UserRole } from '@prisma/client'
 
-const MAX_ATTEMPTS = 10
+const MAX_ATTEMPTS = 5
 const LOCK_MS = 15 * 60 * 1000 // 15분
 const loginAttempts = new Map<string, { count: number; resetAt: number }>()
 

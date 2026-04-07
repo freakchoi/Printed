@@ -13,6 +13,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [failCount, setFailCount] = useState(0)
   const roomyInputClass = 'mt-2 h-10 rounded-md px-3 py-2'
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -25,8 +26,12 @@ export default function LoginPage() {
       password: form.get('password'),
       redirect: false,
     })
-    if (res?.error) {
-      setError('아이디 또는 비밀번호가 올바르지 않습니다.')
+    if (res?.error || res?.ok === false) {
+      const next = failCount + 1
+      setFailCount(next)
+      setError(next >= 5
+        ? '로그인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.'
+        : '아이디 또는 비밀번호가 올바르지 않습니다.')
       setLoading(false)
     } else {
       router.refresh()
