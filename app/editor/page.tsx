@@ -840,6 +840,7 @@ export default function EditorPage() {
         return
       case 'open-project': {
         setIsTemplateLoading(true)
+        setActiveProjectId(action.projectId)
         try {
           const res = await fetch(`/api/projects/${action.projectId}`)
           if (!res.ok) {
