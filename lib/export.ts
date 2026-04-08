@@ -585,12 +585,26 @@ async function fixPdfPageBoxes(
   return Buffer.from(await pdf.save())
 }
 
+async function withTempHtmlFile<T>(html: string, fn: (fileUrl: string) => Promise<T>): Promise<T> {
+  const exportDir = path.join(os.tmpdir(), 'printed-export')
+  await mkdir(exportDir, { recursive: true })
+  const tmpHtml = path.join(exportDir, `${crypto.randomUUID()}.html`)
+  await writeFile(tmpHtml, html, 'utf-8')
+  try {
+    return await fn(`file://${tmpHtml}`)
+  } finally {
+    await unlink(tmpHtml).catch(() => {})
+  }
+}
+
 async function exportRgbPdf(html: string, options: { widthPx: number; heightPx: number; widthPt: number; heightPt: number }) {
   const browser = await getBrowser()
   const page = await browser.newPage()
   try {
     await page.setViewport({ width: Math.max(1, Math.ceil(options.widthPx)), height: Math.max(1, Math.ceil(options.heightPx)) })
-    await page.setContent(html, { waitUntil: 'networkidle0' })
+    await withTempHtmlFile(html, async (fileUrl) => {
+      await page.goto(fileUrl, { waitUntil: 'networkidle0' })
+    })
     await page.evaluate(() => document.fonts.ready)
     const pdfBuffer = await page.pdf({
       width: `${ptToIn(options.widthPt).toFixed(6)}in`,
@@ -610,7 +624,9 @@ async function exportRgbMultiPagePdf(html: string) {
   const browser = await getBrowser()
   const page = await browser.newPage()
   try {
-    await page.setContent(html, { waitUntil: 'networkidle0' })
+    await withTempHtmlFile(html, async (fileUrl) => {
+      await page.goto(fileUrl, { waitUntil: 'networkidle0' })
+    })
     await page.evaluate(() => document.fonts.ready)
     const pdfBuffer = await page.pdf({
       printBackground: true,
