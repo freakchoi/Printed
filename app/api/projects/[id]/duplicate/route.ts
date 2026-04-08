@@ -71,6 +71,7 @@ export async function POST(
   const siblings = await prisma.project.findMany({
     where: { userId: session.user!.id! },
     select: { name: true },
+    take: 1000,
   })
   const duplicateName = buildDuplicateName(project.name, new Set(siblings.map(item => item.name)))
 

@@ -15,7 +15,11 @@ const FRAME_WIDTH_ATTRIBUTE = 'data-printed-frame-width'
 const FRAME_ANCHOR_X_ATTRIBUTE = 'data-printed-anchor-x'
 const FRAME_ANCHOR_MODE_ATTRIBUTE = 'data-printed-anchor-mode'
 const LETTER_SPACING_ATTRIBUTE = 'data-printed-letter-spacing'
-const measurementContext = createCanvas(1, 1).getContext('2d')
+let _measurementContext: ReturnType<ReturnType<typeof createCanvas>['getContext']> | null = null
+function getMeasurementContext() {
+  if (!_measurementContext) _measurementContext = createCanvas(1, 1).getContext('2d')
+  return _measurementContext
+}
 let measurementFontsRegistered = false
 
 const FONT_STYLE_TO_WEIGHT: Array<{ pattern: RegExp; weight: string }> = [
@@ -282,8 +286,9 @@ function measureTextWidth(textElement: ParsedSvgElement, text: string) {
   const fontFamily = getMeasurementFontFamily(textElement)
   const letterSpacing = getLetterSpacing(textElement)
 
-  measurementContext.font = `${fontWeight} ${fontSize}px ${fontFamily}`
-  const metrics = measurementContext.measureText(text)
+  const ctx = getMeasurementContext()
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`
+  const metrics = ctx.measureText(text)
   const spacingWidth = text.length > 1 ? letterSpacing * (text.length - 1) : 0
   return metrics.width + spacingWidth
 }

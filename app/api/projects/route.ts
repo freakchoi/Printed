@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const templateId = req.nextUrl.searchParams.get('templateId')
+  const take = Math.min(Number(req.nextUrl.searchParams.get('limit')) || 200, 500)
+  const skip = Math.max(Number(req.nextUrl.searchParams.get('offset')) || 0, 0)
   const capabilities = await getProjectPersistenceCapabilities(prisma)
 
   const listSelect: Prisma.ProjectSelect = {
@@ -30,6 +32,8 @@ export async function GET(req: NextRequest) {
       ...(templateId ? { templateId } : {}),
     },
     orderBy: { updatedAt: 'desc' },
+    take,
+    skip,
   }) as unknown as Array<{
     createdAt: Date
     createdByActorName?: string | null

@@ -197,6 +197,7 @@ export function SVGCanvas({
   const [selectedFieldBox, setSelectedFieldBox] = useState<SelectedFieldBox | null>(null)
   const activeStageObserverRef = useRef<ResizeObserver | null>(null)
   const measurementFrameRef = useRef<number | null>(null)
+  const sheetRenderCacheRef = useRef(new Map<string, string>())
   const effectiveZoomScale = Math.min(maxZoomScale, Math.max(0.1, zoomScale))
   const floatingHeaderDensity = effectiveZoomScale < 0.4 ? 'compact-2' : effectiveZoomScale < 0.6 ? 'compact-1' : 'default'
   const sharpIconButtonClass = 'flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
@@ -204,7 +205,12 @@ export function SVGCanvas({
 
   const renderedSheets = useMemo(() => {
     return sheets.map(sheet => {
-      const sanitized = DOMPurify.sanitize(applyFieldValuesToSVG(sheet.svgContent, valuesBySheet[sheet.id] ?? {}), {
+      const sheetValues = valuesBySheet[sheet.id] ?? {}
+      const cacheKey = `${sheet.id}:${JSON.stringify(sheetValues)}`
+      const cached = sheetRenderCacheRef.current.get(cacheKey)
+      if (cached) return { ...sheet, markup: cached }
+
+      const sanitized = DOMPurify.sanitize(applyFieldValuesToSVG(sheet.svgContent, sheetValues), {
         USE_PROFILES: { svg: true },
         FORBID_ATTR: ['onload', 'onclick', 'onerror', 'onmouseover', 'onfocus', 'onblur'],
       })
@@ -212,6 +218,13 @@ export function SVGCanvas({
       if (process.env.NODE_ENV !== 'production' && !markup) {
         console.warn('[SVGCanvas] Empty sheet markup after sanitize', sheet.id)
       }
+
+      sheetRenderCacheRef.current.set(cacheKey, markup)
+      if (sheetRenderCacheRef.current.size > 50) {
+        const firstKey = sheetRenderCacheRef.current.keys().next().value
+        if (firstKey !== undefined) sheetRenderCacheRef.current.delete(firstKey)
+      }
+
       return {
         ...sheet,
         markup,
@@ -242,9 +255,7 @@ export function SVGCanvas({
     const root = containerRef.current
     if (!root) return
 
-    const listeners: Array<() => void> = []
     const textElements = root.querySelectorAll<SVGTextElement>('text[id]')
-
     textElements.forEach(element => {
       const fieldId = element.getAttribute('id')
       const sheetRoot = element.closest<HTMLElement>('[data-sheet-id]')
@@ -261,28 +272,35 @@ export function SVGCanvas({
       element.style.strokeWidth = '0'
       element.style.filter = 'none'
       element.style.opacity = isSelected ? '1' : ''
-
-      if (!isProjectPreview) return
-
-      const handleEnter = () => {
-        if (selectedFieldId === fieldId && activeSheetId === sheetId) return
-        element.style.opacity = '0.92'
-      }
-      const handleLeave = () => {
-        if (selectedFieldId === fieldId && activeSheetId === sheetId) return
-        element.style.opacity = ''
-      }
-
-      element.addEventListener('mouseenter', handleEnter)
-      element.addEventListener('mouseleave', handleLeave)
-      listeners.push(() => {
-        element.removeEventListener('mouseenter', handleEnter)
-        element.removeEventListener('mouseleave', handleLeave)
-      })
     })
 
+    if (!isProjectPreview) return
+
+    const handleEnter = (e: Event) => {
+      const textEl = (e.target as Element).closest?.('text[id]')
+      if (!textEl) return
+      const fieldId = textEl.getAttribute('id')
+      const sheetRoot = textEl.closest<HTMLElement>('[data-sheet-id]')
+      const sheetId = sheetRoot?.dataset.sheetId
+      if (selectedFieldId === fieldId && activeSheetId === sheetId) return
+      ;(textEl as HTMLElement).style.opacity = '0.92'
+    }
+    const handleLeave = (e: Event) => {
+      const textEl = (e.target as Element).closest?.('text[id]')
+      if (!textEl) return
+      const fieldId = textEl.getAttribute('id')
+      const sheetRoot = textEl.closest<HTMLElement>('[data-sheet-id]')
+      const sheetId = sheetRoot?.dataset.sheetId
+      if (selectedFieldId === fieldId && activeSheetId === sheetId) return
+      ;(textEl as HTMLElement).style.opacity = ''
+    }
+
+    root.addEventListener('mouseenter', handleEnter, true)
+    root.addEventListener('mouseleave', handleLeave, true)
+
     return () => {
-      listeners.forEach(dispose => dispose())
+      root.removeEventListener('mouseenter', handleEnter, true)
+      root.removeEventListener('mouseleave', handleLeave, true)
     }
   }, [activeSheetId, isProjectPreview, renderedSheets, selectedFieldId])
 

@@ -185,6 +185,7 @@ export async function PUT(
     const siblings = await prisma.project.findMany({
       where: { userId },
       select: { name: true },
+      take: 1000,
     })
     const resolvedName = buildAutoCloneName(nextName, new Set(siblings.map(item => item.name)))
     const duplicated = await prisma.$transaction(async (tx) => {
@@ -302,17 +303,25 @@ export async function PATCH(
 
   const project = await prisma.project.findFirst({
     where: { id, userId },
-    select: { id: true },
-  })
+    select: { id: true, sheetSnapshot: true, values: true, template: { include: { sheets: { select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true } } } } },
+  }) as unknown as { id: string; sheetSnapshot: string | null; values: string; template: any } | null
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const data: { sheetSnapshot?: string; values?: string } = {}
-  if (body.sheetSnapshot !== undefined) data.sheetSnapshot = JSON.stringify(body.sheetSnapshot)
-  if (body.values !== undefined) data.values = JSON.stringify(body.values)
-
-  if (Object.keys(data).length === 0) {
+  if (body.sheetSnapshot === undefined && body.values === undefined) {
     return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
   }
+
+  const template = await buildTemplateDetail(project.template)
+  const currentSnapshot = normalizeProjectSheetSnapshot(
+    project.sheetSnapshot ? JSON.parse(project.sheetSnapshot) : null,
+    template.sheets,
+  )
+  const data: { sheetSnapshot?: string; values?: string } = {}
+  const nextSnapshot = body.sheetSnapshot !== undefined
+    ? normalizeProjectSheetSnapshot(body.sheetSnapshot, template.sheets)
+    : currentSnapshot
+  if (body.sheetSnapshot !== undefined) data.sheetSnapshot = JSON.stringify(nextSnapshot)
+  if (body.values !== undefined) data.values = JSON.stringify(normalizeProjectValues(body.values, nextSnapshot))
 
   await prisma.project.update({ where: { id: project.id }, data })
   return NextResponse.json({ ok: true })

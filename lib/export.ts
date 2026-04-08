@@ -18,14 +18,22 @@ import { FONT_REGISTRY } from '@/lib/fonts'
 const execFileAsync = promisify(execFile)
 
 // 동시 PDF export를 직렬화해 Puppeteer 브라우저 싱글턴 경쟁 방지
+// pLimit(1): 의도적 직렬화 — zip 아카이브 내 시트도 순차 처리하며 브라우저 동시 접근을 방지
 const exportLimiter = pLimit(1)
 
 let _browser: import('puppeteer').Browser | null = null
+let _lastUsedAt = 0
+const BROWSER_IDLE_TIMEOUT = 5 * 60 * 1000 // 5 minutes
 
 async function getBrowser() {
+  if (_browser && _browser.connected && (Date.now() - _lastUsedAt) > BROWSER_IDLE_TIMEOUT) {
+    await _browser.close().catch(() => {})
+    _browser = null
+  }
   if (!_browser || !_browser.connected) {
     _browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] })
   }
+  _lastUsedAt = Date.now()
   return _browser
 }
 
@@ -338,7 +346,7 @@ async function renderSvgSurface(svgString: string, width: number, height: number
     </style>
   </body>
 </html>`
-    await page.setContent(html, { waitUntil: 'networkidle0' })
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 30_000 })
     const element = await page.$('#export-surface')
     if (!element) throw new Error('Export surface not found in page')
     return await element.screenshot({ type: 'png' }) as Buffer
@@ -603,7 +611,7 @@ async function exportRgbPdf(html: string, options: { widthPx: number; heightPx: 
   try {
     await page.setViewport({ width: Math.max(1, Math.ceil(options.widthPx)), height: Math.max(1, Math.ceil(options.heightPx)) })
     await withTempHtmlFile(html, async (fileUrl) => {
-      await page.goto(fileUrl, { waitUntil: 'networkidle0' })
+      await page.goto(fileUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 })
     })
     await page.evaluate(() => document.fonts.ready)
     const pdfBuffer = await page.pdf({
@@ -625,7 +633,7 @@ async function exportRgbMultiPagePdf(html: string) {
   const page = await browser.newPage()
   try {
     await withTempHtmlFile(html, async (fileUrl) => {
-      await page.goto(fileUrl, { waitUntil: 'networkidle0' })
+      await page.goto(fileUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 })
     })
     await page.evaluate(() => document.fonts.ready)
     const pdfBuffer = await page.pdf({

@@ -61,6 +61,7 @@ export function ExportDialog({
   const dialogRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (!isOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         const target = e.target as HTMLElement
@@ -82,7 +83,7 @@ export function ExportDialog({
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [isOpen, onClose])
 
   useEffect(() => {
     if (!isOpen || !dialogRef.current) return

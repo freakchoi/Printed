@@ -146,7 +146,12 @@ export async function buildTemplateDetail(
   let sheets: TemplateSheetDetail[]
   if (sheetRecords.length > 0) {
     sheets = await Promise.all(sheetRecords.sort((a, b) => a.order - b.order).map(async (sheet) => {
-        const svgContent = await readFile(sheet.svgPath, 'utf-8')
+        let svgContent: string
+        try {
+          svgContent = await readFile(sheet.svgPath, 'utf-8')
+        } catch {
+          throw new Error(`SVG 파일을 찾을 수 없습니다: ${sheet.name} (${sheet.svgPath})`)
+        }
         const storedFields = parseStoredFields(sheet.fields)
         const hydrated = hydrateSheetSvgAndFields(svgContent, storedFields)
         return {
@@ -159,7 +164,12 @@ export async function buildTemplateDetail(
         }
       }))
   } else {
-    const svgContent = await readFile(template.svgPath, 'utf-8')
+    let svgContent: string
+    try {
+      svgContent = await readFile(template.svgPath, 'utf-8')
+    } catch {
+      throw new Error(`SVG 파일을 찾을 수 없습니다: ${template.svgPath}`)
+    }
     const storedFields = parseStoredFields(template.fields)
     const hydrated = hydrateSheetSvgAndFields(svgContent, storedFields)
     sheets = [{

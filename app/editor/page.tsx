@@ -190,6 +190,8 @@ export default function EditorPage() {
   const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false)
   const [deleteConfirmProjectId, setDeleteConfirmProjectId] = useState<string | null>(null)
   const projectsRequestRef = useRef(0)
+  const undoVersionRef = useRef(0)
+  const exportAbortRef = useRef<AbortController | null>(null)
   const textEditSessionRef = useRef<{ fieldId: string; sheetId: string } | null>(null)
   const { toast, setToast, showToast } = useToast()
   const {
@@ -257,8 +259,11 @@ export default function EditorPage() {
     projectsRequestRef.current = requestId
     setIsProjectsLoading(true)
     setProjectsError(null)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10_000)
     try {
-      const res = await fetch(`/api/projects?templateId=${templateId}`)
+      const res = await fetch(`/api/projects?templateId=${templateId}`, { signal: controller.signal })
+      clearTimeout(timeoutId)
       if (!res.ok) {
         const data = await res.json().catch(() => null)
         throw new Error(data?.error ?? '작업 파일을 불러오지 못했습니다.')
@@ -460,16 +465,13 @@ export default function EditorPage() {
 
   const pushUndoState = useCallback(() => {
     if (workspaceMode !== 'project-preview') return
+    undoVersionRef.current += 1
     setUndoStack(prev => {
       const nextEntry = cloneUndoState({
         pendingProjectName,
         projectSheets,
         values,
       })
-      const lastEntry = prev[prev.length - 1]
-      if (lastEntry && JSON.stringify(lastEntry) === JSON.stringify(nextEntry)) {
-        return prev
-      }
       const nextStack = [...prev, nextEntry]
       return nextStack.length > 50 ? nextStack.slice(nextStack.length - 50) : nextStack
     })
@@ -718,12 +720,16 @@ export default function EditorPage() {
       throw new Error('작업자 이름을 먼저 설정해주세요.')
     }
 
+    exportAbortRef.current?.abort()
+    exportAbortRef.current = new AbortController()
+
     setIsExporting(true)
     setExportError(null)
     try {
       const res = await fetch('/api/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: exportAbortRef.current.signal,
         body: JSON.stringify({
           combinedDirection: nextCombinedDirection,
           fileName,
@@ -765,6 +771,7 @@ export default function EditorPage() {
       }
       revalidateProjects()
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
       setExportError(error instanceof Error ? error.message : '내보내기에 실패했습니다.')
       throw error
     } finally {

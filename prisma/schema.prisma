@@ -46,6 +46,9 @@ model Template {
   createdAt DateTime        @default(now())
   projects  Project[]
   sheets    TemplateSheet[]
+
+  @@index([parentId])
+  @@index([category])
 }
 
 model TemplateSheet {
@@ -88,6 +91,7 @@ model Project {
 
   @@index([userId, updatedAt])
   @@index([userId, templateId])
+  @@index([templateId])
 }
 
 model ProjectActivity {
