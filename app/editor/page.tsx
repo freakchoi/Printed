@@ -839,27 +839,32 @@ export default function EditorPage() {
         setSelectedTemplateId(action.templateId)
         return
       case 'open-project': {
-        const res = await fetch(`/api/projects/${action.projectId}`)
-        if (!res.ok) {
-          const data = await res.json().catch(() => null)
-          throw new Error(data?.error ?? '작업 파일을 열지 못했습니다.')
+        setIsTemplateLoading(true)
+        try {
+          const res = await fetch(`/api/projects/${action.projectId}`)
+          if (!res.ok) {
+            const data = await res.json().catch(() => null)
+            throw new Error(data?.error ?? '작업 파일을 열지 못했습니다.')
+          }
+          const project = await res.json() as {
+            createdByActorName?: string | null
+            id: string
+            lastEditedByActorName?: string | null
+            lastExportedAt?: string | null
+            lastExportedByActorName?: string | null
+            name: string
+            createdAt: string
+            sheetSnapshot: ProjectSheetSnapshot[]
+            updatedAt: string
+            values: ProjectValuesBySheet
+            template: TemplateDetail
+          }
+          loadProjectIntoWorkspace(project)
+          setProjectTimestampMode('saved')
+          handleZoomFit()
+        } finally {
+          setIsTemplateLoading(false)
         }
-        const project = await res.json() as {
-          createdByActorName?: string | null
-          id: string
-          lastEditedByActorName?: string | null
-          lastExportedAt?: string | null
-          lastExportedByActorName?: string | null
-          name: string
-          createdAt: string
-          sheetSnapshot: ProjectSheetSnapshot[]
-          updatedAt: string
-          values: ProjectValuesBySheet
-          template: TemplateDetail
-        }
-        loadProjectIntoWorkspace(project)
-        setProjectTimestampMode('saved')
-        handleZoomFit()
         return
       }
       case 'create-project':

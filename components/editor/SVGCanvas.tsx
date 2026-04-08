@@ -543,12 +543,31 @@ export function SVGCanvas({
           onWheel={handleWheel}
         >
         <LoadingOverlay
-          isVisible={isLoading || isSaving || isExporting}
-          title={isLoading ? '문서를 불러오는 중' : isSaving ? '작업을 저장하는 중' : '파일을 준비하는 중'}
-          description={isLoading ? '현재 화면은 유지한 채 필요한 데이터만 다시 가져오고 있습니다.' : isSaving ? '현재 변경사항을 안전하게 기록하고 있습니다.' : '저장 후 내보내기를 이어서 처리하고 있습니다.'}
+          isVisible={isSaving || isExporting}
+          title={isSaving ? '작업을 저장하는 중' : '파일을 준비하는 중'}
+          description={isSaving ? '현재 변경사항을 안전하게 기록하고 있습니다.' : '저장 후 내보내기를 이어서 처리하고 있습니다.'}
         />
         <div className="mx-auto flex min-h-full w-full flex-col items-center gap-8 py-8">
-            {renderedSheets.map((sheet, index) => {
+            {isLoading && renderedSheets.length > 0 ? (
+              renderedSheets.map((sheet) => {
+                const stageW = Math.round(sheet.widthPx * effectiveZoomScale)
+                const stageH = Math.round(sheet.heightPx * effectiveZoomScale)
+                return (
+                  <section
+                    key={sheet.id}
+                    className="relative mx-auto w-fit border border-border/40 bg-[var(--editor-artboard-shell)] px-3 pb-3 pt-6 sm:px-4 sm:pb-4"
+                    style={{ boxShadow: 'var(--editor-artboard-shadow)' }}
+                  >
+                    <div className="animate-pulse rounded-sm bg-muted/40" style={{ width: stageW, height: stageH }}>
+                      <div className="flex h-full flex-col items-center justify-center gap-3">
+                        <LoaderCircle size={20} className="animate-spin text-muted-foreground/50" />
+                        <span className="text-xs text-muted-foreground/60">불러오는 중</span>
+                      </div>
+                    </div>
+                  </section>
+                )
+              })
+            ) : renderedSheets.map((sheet, index) => {
               const isActive = sheet.id === activeSheetId
               const isMultiSelected = selectedSheetIds.includes(sheet.id)
               const isEditing = editingSheetId === sheet.id
