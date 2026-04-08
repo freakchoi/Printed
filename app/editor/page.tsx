@@ -333,6 +333,11 @@ export default function EditorPage() {
       setIsTemplateLoading(true)
       setTemplateLoadError(null)
 
+      // 프로젝트 목록을 템플릿 상세와 병렬로 시작
+      const projectsPromise = loadProjects(selectedTemplateId).catch(() => {
+        if (!cancelled) setProjects([])
+      })
+
       try {
         const templateRes = await fetch(`/api/templates/${selectedTemplateId}`)
 
@@ -349,11 +354,7 @@ export default function EditorPage() {
         if (cancelled) return
         setTemplateDetail(detail)
         prepareTemplatePreview(detail)
-        void loadProjects(selectedTemplateId).catch(() => {
-          if (!cancelled) {
-            setProjects([])
-          }
-        })
+        await projectsPromise
       } catch (error) {
         if (cancelled) return
         setTemplateDetail(null)
@@ -654,9 +655,12 @@ export default function EditorPage() {
       setHasCompletedInitialSave(true)
       setProjectTimestampMode('saved')
       textEditSessionRef.current = null
-      setWorkspaceNotice(payload.conflict
-        ? `다른 작업자가 먼저 저장해 "${nextName}" 자동 복구본으로 전환했습니다.`
-        : null)
+      if (payload.conflict) {
+        setWorkspaceNotice(`다른 작업자가 먼저 저장해 "${nextName}" 자동 복구본으로 전환했습니다.`)
+      } else {
+        setWorkspaceNotice(null)
+        showToast('파일을 저장했습니다.', 'success')
+      }
       setProjects(prev => upsertProjectSummary(prev, buildProjectSummaryFromMeta(nextMeta, templateDetail.id)))
       revalidateProjects()
       return nextProjectId
@@ -678,6 +682,7 @@ export default function EditorPage() {
     pendingProjectName,
     projectSheets,
     revalidateProjects,
+    showToast,
     templateDetail,
     values,
   ])
@@ -746,7 +751,7 @@ export default function EditorPage() {
       const resolvedName = getDownloadName(res.headers.get('content-disposition'), fallbackName)
       downloadBlob(blob, resolvedName)
       const exportedAt = new Date().toISOString()
-      setWorkspaceNotice(`${fileName} ${format === 'pdf' ? 'PDF' : format === 'png' ? 'PNG' : 'JPG'} 파일을 저장했습니다.`)
+      showToast(`${fileName} ${format === 'pdf' ? 'PDF' : format === 'png' ? 'PNG' : 'JPG'} 파일을 내보냈습니다.`, 'success')
       if (activeProjectMeta && activeProjectMeta.id === projectId) {
         const nextMeta = {
           ...activeProjectMeta,
@@ -765,7 +770,7 @@ export default function EditorPage() {
     } finally {
       setIsExporting(false)
     }
-  }, [activeProjectId, actorClientId, actorName, ensureActorProfile, revalidateProjects, templateDetail, values])
+  }, [activeProjectId, actorClientId, actorName, ensureActorProfile, revalidateProjects, showToast, templateDetail, values])
 
   const createProjectImmediately = useCallback(async (detail: TemplateDetail) => {
     if (!ensureActorProfile()) {

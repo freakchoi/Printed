@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DOMPurify from 'dompurify'
-import { AlertCircle, Download, GripVertical, PencilLine, Plus, Save, Trash2, X } from 'lucide-react'
+import { AlertCircle, Download, GripVertical, LoaderCircle, PencilLine, Plus, Save, Trash2, X } from 'lucide-react'
 import { LoadingOverlay } from '@/components/editor/LoadingOverlay'
 import { ZoomControl } from '@/components/editor/ZoomControl'
 import { Button } from '@/components/ui/button'
@@ -408,7 +408,8 @@ export function SVGCanvas({
   if (isLoading && renderedSheets.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center bg-muted/25 p-10">
-        <div className="motion-fade-up w-full max-w-4xl border border-dashed border-border bg-card/85 p-10 text-center">
+        <div className="motion-fade-up flex w-full max-w-4xl flex-col items-center gap-3 border border-dashed border-border bg-card/85 p-10 text-center">
+          <LoaderCircle size={24} className="animate-spin text-primary" />
           <p className="text-sm font-medium text-foreground">템플릿 문서를 준비하는 중입니다.</p>
         </div>
       </div>
