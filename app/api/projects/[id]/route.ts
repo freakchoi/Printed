@@ -32,8 +32,9 @@ export async function GET(
       include: { sheets: { select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true } } },
     },
   }
+  const isAdmin = session.user?.role === 'ADMIN'
   const project = await prisma.project.findFirst({
-    where: { id, userId },
+    where: { id, ...(isAdmin ? {} : { userId }) },
     select: getSelect,
   }) as unknown as {
     createdAt: Date
@@ -110,8 +111,9 @@ export async function PUT(
       include: { sheets: { select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true } } },
     },
   }
+  const isAdmin = session.user?.role === 'ADMIN'
   const project = await prisma.project.findFirst({
-    where: { id, userId },
+    where: { id, ...(isAdmin ? {} : { userId }) },
     select: putSelect,
   }) as unknown as {
     createdAt: Date
@@ -301,8 +303,9 @@ export async function PATCH(
   const { id } = await params
   const body = await req.json().catch(() => ({})) as { sheetSnapshot?: unknown; values?: unknown }
 
+  const isAdmin = session.user?.role === 'ADMIN'
   const project = await prisma.project.findFirst({
-    where: { id, userId },
+    where: { id, ...(isAdmin ? {} : { userId }) },
     select: { id: true, sheetSnapshot: true, values: true, template: { include: { sheets: { select: { id: true, name: true, order: true, svgPath: true, fields: true, width: true, height: true, unit: true, widthPx: true, heightPx: true } } } } },
   }) as unknown as { id: string; sheetSnapshot: string | null; values: string; template: any } | null
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
