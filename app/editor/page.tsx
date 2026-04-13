@@ -1105,14 +1105,14 @@ export default function EditorPage() {
     textEditSessionRef.current = null
     setPendingProjectName(trimmed)
     setIsEditingProjectName(false)
-    if (hasCompletedInitialSave && trimmed !== fallbackName) {
+    if (workspaceMode === 'project-preview' && trimmed !== fallbackName) {
       try {
         await saveProjectState({})
       } catch {
         // 자동 저장 실패는 무시 — 사용자가 수동 저장 가능
       }
     }
-  }, [activeProjectMeta?.name, hasCompletedInitialSave, pendingProjectName, pushUndoState, saveProjectState, workspaceMode])
+  }, [activeProjectMeta?.name, pendingProjectName, pushUndoState, saveProjectState, workspaceMode])
 
   const handleStartProjectNameEdit = useCallback(() => {
     setPendingProjectName(current => current || activeProjectMeta?.name || '새 작업')
