@@ -502,8 +502,9 @@ export function SVGCanvas({
                   {isSaving ? '저장 중...' : '저장'}
                 </Button>
                 {onDuplicateProject && (
-                  <Button size="sm" variant="ghost" className="editor-press h-8 w-8 rounded-md p-0" onClick={onDuplicateProject} disabled={isSaving} title="복제 (다른 이름으로 저장)">
-                    <Copy size={14} />
+                  <Button size="sm" variant="outline" className="editor-press h-8 rounded-md" onClick={onDuplicateProject} disabled={isSaving}>
+                    <Copy size={14} className="mr-1" />
+                    복제
                   </Button>
                 )}
                 <Button size="sm" variant="outline" className="editor-press h-8 rounded-md" onClick={onOpenExport} disabled={isExporting}>
