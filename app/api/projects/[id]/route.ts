@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import { auth } from '@/lib/auth'
 import { buildAutoCloneName, getProjectPersistenceCapabilities, normalizeActorIdentity, recordProjectActivityIfSupported } from '@/lib/project-activity.server'
 import { prisma } from '@/lib/prisma'
-import { buildTemplateDetail, hydrateProjectSheetSnapshots } from '@/lib/template-server'
+import { buildTemplateDetail, buildTemplateDetailFromSnapshot, hydrateProjectSheetSnapshots } from '@/lib/template-server'
 import { normalizeProjectSheetSnapshot, normalizeProjectValues, reconcileProjectSheetSnapshotDimensions } from '@/lib/template-model'
 
 export async function GET(
@@ -54,8 +54,20 @@ export async function GET(
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   try {
-    const template = await buildTemplateDetail(project.template)
     const parsedSnapshot = project.sheetSnapshot ? JSON.parse(project.sheetSnapshot) : null
+    const hasValidSnapshot = Array.isArray(parsedSnapshot) && parsedSnapshot.length > 0 &&
+      parsedSnapshot.every((s: any) => typeof s?.svgContent === 'string' && s.svgContent)
+
+    let template: Awaited<ReturnType<typeof buildTemplateDetail>>
+    if (hasValidSnapshot) {
+      // sheetSnapshot에 SVG가 포함되어 있으면 디스크 I/O 없이 경량 빌드
+      // snapshot 자체를 ProjectSheetSnapshot으로 캐스팅해서 template 구성
+      template = buildTemplateDetailFromSnapshot(project.template, parsedSnapshot)
+    } else {
+      // snapshot이 없거나 불완전하면 기존 방식 (디스크에서 SVG 읽기)
+      template = await buildTemplateDetail(project.template)
+    }
+
     const normalizedSnapshot = normalizeProjectSheetSnapshot(parsedSnapshot, template.sheets)
     const sheetSnapshot = hydrateProjectSheetSnapshots(reconcileProjectSheetSnapshotDimensions(normalizedSnapshot, template.sheets))
     const values = normalizeProjectValues(JSON.parse(project.values), sheetSnapshot)

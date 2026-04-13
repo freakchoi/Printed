@@ -212,6 +212,35 @@ export async function buildTemplateDetail(
   return detail
 }
 
+/**
+ * sheetSnapshot의 SVG 콘텐츠를 활용해 디스크 I/O 없이 TemplateDetail을 구성.
+ * 프로젝트 로드 시 buildTemplateDetail 대신 사용하면 2~3초 → 즉시.
+ */
+export function buildTemplateDetailFromSnapshot(
+  template: Pick<Template, 'id' | 'name' | 'category' | 'thumbnail' | 'printColorProfileMode' | 'adobeWorkingCmykPreset' | 'customIccPath' | 'sourceRgbIcc'>,
+  sheetSnapshots: ProjectSheetSnapshot[],
+): TemplateDetail {
+  return {
+    id: template.id,
+    name: template.name,
+    category: template.category,
+    thumbnail: template.thumbnail,
+    printSettings: buildTemplatePrintSettings(template),
+    sheets: sheetSnapshots.map(snap => ({
+      id: snap.sourceTemplateSheetId ?? snap.id,
+      name: snap.name,
+      order: snap.order,
+      svgContent: snap.svgContent,
+      fields: snap.fields,
+      width: snap.width,
+      height: snap.height,
+      unit: snap.unit,
+      widthPx: snap.widthPx,
+      heightPx: snap.heightPx,
+    })),
+  }
+}
+
 export async function buildTemplateListItem(
   template: Pick<Template, 'id' | 'name' | 'category' | 'thumbnail' | 'svgPath' | 'printColorProfileMode' | 'adobeWorkingCmykPreset' | 'customIccPath' | 'sourceRgbIcc'> & {
     sheets?: Pick<TemplateSheet, 'id' | 'name' | 'order' | 'width' | 'height' | 'unit' | 'widthPx' | 'heightPx' | 'svgPath'>[]
