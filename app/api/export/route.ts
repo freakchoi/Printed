@@ -41,21 +41,24 @@ async function recordExportActivity(args: {
   projectId: string
   projectName: string
   templateId: string
-}) {
-  if (!args.capabilities.projectExportColumns && !args.capabilities.projectActivityTable) return
+}): Promise<string | null> {
+  if (!args.capabilities.projectExportColumns && !args.capabilities.projectActivityTable) return null
 
   try {
     const exportedAt = new Date()
+    let updatedAt: string | null = null
     await prisma.$transaction(async (tx) => {
       if (args.capabilities.projectExportColumns) {
-        await tx.project.update({
+        const updated = await tx.project.update({
           where: { id: args.projectId },
           data: {
             lastExportedAt: exportedAt,
             lastExportedByActorName: args.actor.actorName,
             lastExportedByActorClientId: args.actor.actorClientId,
           },
+          select: { updatedAt: true },
         })
+        updatedAt = updated.updatedAt.toISOString()
       }
 
       await recordProjectActivityIfSupported(tx, args.capabilities, {
@@ -70,8 +73,10 @@ async function recordExportActivity(args: {
         },
       })
     })
+    return updatedAt
   } catch (error) {
     console.warn('[Printed] Export audit logging failed:', error)
+    return null
   }
 }
 
@@ -186,19 +191,15 @@ export async function POST(req: NextRequest) {
 
       if (imageMode === 'separate') {
         const result = await exportRenderableSheetsToSeparateArchive(renderableSheets, format, { rasterMode: rasterMode ?? 'high-res' })
-        await recordExportActivity({
-          actor,
-          baseName,
-          capabilities,
-          format,
-          projectId: project.id,
-          projectName: project.name,
-          templateId: project.templateId,
+        const projectUpdatedAt = await recordExportActivity({
+          actor, baseName, capabilities, format,
+          projectId: project.id, projectName: project.name, templateId: project.templateId,
         })
         return new NextResponse(new Uint8Array(result.buffer), {
           headers: {
             'Content-Type': result.contentType,
             'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`${project.name}-${result.fileName}`)}`,
+            ...(projectUpdatedAt ? { 'X-Project-Updated-At': projectUpdatedAt } : {}),
           },
         })
       }
@@ -207,14 +208,9 @@ export async function POST(req: NextRequest) {
         rasterMode: rasterMode ?? 'high-res',
         combinedDirection,
       })
-      await recordExportActivity({
-        actor,
-        baseName,
-        capabilities,
-        format,
-        projectId: project.id,
-        projectName: project.name,
-        templateId: project.templateId,
+      const imgUpdatedAt = await recordExportActivity({
+        actor, baseName, capabilities, format,
+        projectId: project.id, projectName: project.name, templateId: project.templateId,
       })
       const mime = format === 'png' ? 'image/png' : 'image/jpeg'
       const extension = format === 'jpeg' ? 'jpg' : format
@@ -222,24 +218,21 @@ export async function POST(req: NextRequest) {
         headers: {
           'Content-Type': mime,
           'Content-Disposition': `attachment; filename*=UTF-8''${encodedName}.${extension}`,
+          ...(imgUpdatedAt ? { 'X-Project-Updated-At': imgUpdatedAt } : {}),
         },
       })
     }
 
     const buffer = await exportSheetsToPDF(sheetSnapshot, values, template.printSettings, baseName, { outlineText })
-    await recordExportActivity({
-      actor,
-      baseName,
-      capabilities,
-      format,
-      projectId: project.id,
-      projectName: project.name,
-      templateId: project.templateId,
+    const pdfUpdatedAt = await recordExportActivity({
+      actor, baseName, capabilities, format,
+      projectId: project.id, projectName: project.name, templateId: project.templateId,
     })
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename*=UTF-8''${encodedName}.pdf`,
+        ...(pdfUpdatedAt ? { 'X-Project-Updated-At': pdfUpdatedAt } : {}),
       },
     })
   } catch (error) {

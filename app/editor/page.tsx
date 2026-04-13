@@ -752,23 +752,26 @@ export default function EditorPage() {
         throw new Error(data?.error ?? '내보내기에 실패했습니다.')
       }
 
+      const serverUpdatedAt = res.headers.get('X-Project-Updated-At')
       const blob = await res.blob()
       const fallbackName = `${fileName}.${format === 'jpeg' ? 'jpg' : format}`
       const resolvedName = getDownloadName(res.headers.get('content-disposition'), fallbackName)
       downloadBlob(blob, resolvedName)
       const exportedAt = new Date().toISOString()
       showToast(`${fileName} ${format === 'pdf' ? 'PDF' : format === 'png' ? 'PNG' : 'JPG'} 파일을 내보냈습니다.`, 'success')
-      if (activeProjectMeta && activeProjectMeta.id === projectId) {
+      setActiveProjectMeta(prev => {
+        if (!prev || prev.id !== projectId) return prev
         const nextMeta = {
-          ...activeProjectMeta,
+          ...prev,
           lastExportedAt: exportedAt,
-          lastExportedByActorName: actorName || activeProjectMeta.lastExportedByActorName || null,
+          lastExportedByActorName: actorName || prev.lastExportedByActorName || null,
+          ...(serverUpdatedAt ? { updatedAt: serverUpdatedAt } : {}),
         }
-        setActiveProjectMeta(nextMeta)
         if (templateDetail) {
           setProjects(current => upsertProjectSummary(current, buildProjectSummaryFromMeta(nextMeta, templateDetail.id)))
         }
-      }
+        return nextMeta
+      })
       revalidateProjects()
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
@@ -1130,6 +1133,18 @@ export default function EditorPage() {
     }
   }, [executePendingAction, pendingAction, saveProjectState])
 
+  const handleSaveOrOpenDialog = useCallback(async () => {
+    if (hasCompletedInitialSave) {
+      try {
+        await saveProjectState({})
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : '파일을 저장하지 못했습니다.', 'error')
+      }
+    } else {
+      setIsSaveDialogOpen(true)
+    }
+  }, [hasCompletedInitialSave, saveProjectState, showToast])
+
   const handleOpenExportDialog = useCallback(() => {
     setExportFileName((pendingProjectName.trim() || activeProjectMeta?.name || '새 작업'))
     setExportFormat('pdf')
@@ -1230,7 +1245,7 @@ export default function EditorPage() {
 
     setIsExportDialogOpen(false)
     try {
-      const savedProjectId = await saveProjectState({ desiredName: resolvedFileName })
+      const savedProjectId = await saveProjectState({})
       await executePendingAction(payload, savedProjectId)
     } catch (error) {
       setExportError(error instanceof Error ? error.message : '내보내기에 실패했습니다.')
@@ -1550,9 +1565,10 @@ export default function EditorPage() {
                 onCommitProjectName={handleCommitProjectName}
                 onCreateProject={handleCreateProject}
                 onDeleteProject={activeProjectId ? () => handleDeleteProject(activeProjectId) : undefined}
+                onDuplicateProject={activeProjectId ? () => handleDuplicateProject(activeProjectId) : undefined}
                 onDeleteSelectedSheets={workspaceMode === 'project-preview' ? handleDeleteSelectedSheets : undefined}
                 onOpenExport={workspaceMode === 'project-preview' ? handleOpenExportDialog : undefined}
-                onOpenSave={workspaceMode === 'project-preview' ? () => setIsSaveDialogOpen(true) : undefined}
+                onOpenSave={workspaceMode === 'project-preview' ? handleSaveOrOpenDialog : undefined}
                 onProjectNameChange={setPendingProjectName}
                 onMoveSelectedSheets={handleMoveSelectedSheets}
                 onRenameSheet={handleRenameSheet}

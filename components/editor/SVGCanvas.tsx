@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DOMPurify from 'dompurify'
-import { AlertCircle, Download, GripVertical, LoaderCircle, PencilLine, Plus, Save, Trash2, X } from 'lucide-react'
+import { AlertCircle, Copy, Download, GripVertical, LoaderCircle, PencilLine, Plus, Save, Trash2, X } from 'lucide-react'
 import { LoadingOverlay } from '@/components/editor/LoadingOverlay'
 import { ZoomControl } from '@/components/editor/ZoomControl'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,7 @@ interface SVGCanvasProps {
   onCancelProjectNameEdit?: () => void
   onCreateProject?: () => void
   onDeleteProject?: () => void
+  onDuplicateProject?: () => void
   onDeleteSelectedSheets?: (sheetId?: string) => void
   onOpenExport?: () => void
   onOpenSave?: () => void
@@ -156,6 +157,7 @@ export function SVGCanvas({
   onCancelProjectNameEdit,
   onCreateProject,
   onDeleteProject,
+  onDuplicateProject,
   onDeleteSelectedSheets,
   onOpenExport,
   onOpenSave,
@@ -499,6 +501,11 @@ export function SVGCanvas({
                   <Save size={14} className="mr-1" />
                   {isSaving ? '저장 중...' : '저장'}
                 </Button>
+                {onDuplicateProject && (
+                  <Button size="sm" variant="ghost" className="editor-press h-8 w-8 rounded-md p-0" onClick={onDuplicateProject} disabled={isSaving} title="복제 (다른 이름으로 저장)">
+                    <Copy size={14} />
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" className="editor-press h-8 rounded-md" onClick={onOpenExport} disabled={isExporting}>
                   <Download size={14} className="mr-1" />
                   {isExporting ? '내보내는 중...' : '내보내기'}
