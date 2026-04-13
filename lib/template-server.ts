@@ -136,11 +136,23 @@ export async function buildLegacySheetSummary(template: Pick<Template, 'id' | 's
   }
 }
 
+const templateDetailCache = new Map<string, { detail: TemplateDetail; timestamp: number }>()
+const TEMPLATE_CACHE_MAX = 20
+const TEMPLATE_CACHE_TTL = 30 * 60 * 1000 // 30 minutes
+
+export function invalidateTemplateDetailCache(templateId: string) {
+  templateDetailCache.delete(templateId)
+}
+
 export async function buildTemplateDetail(
   template: Pick<Template, 'id' | 'name' | 'category' | 'thumbnail' | 'svgPath' | 'fields' | 'printColorProfileMode' | 'adobeWorkingCmykPreset' | 'customIccPath' | 'sourceRgbIcc'> & {
     sheets?: Pick<TemplateSheet, 'id' | 'name' | 'order' | 'svgPath' | 'fields' | 'width' | 'height' | 'unit' | 'widthPx' | 'heightPx'>[]
   },
 ): Promise<TemplateDetail> {
+  const cached = templateDetailCache.get(template.id)
+  if (cached && (Date.now() - cached.timestamp) < TEMPLATE_CACHE_TTL) {
+    return cached.detail
+  }
   const sheetRecords = template.sheets ?? []
 
   let sheets: TemplateSheetDetail[]
@@ -182,7 +194,7 @@ export async function buildTemplateDetail(
     }]
   }
 
-  return {
+  const detail: TemplateDetail = {
     id: template.id,
     name: template.name,
     category: template.category,
@@ -190,6 +202,14 @@ export async function buildTemplateDetail(
     printSettings: buildTemplatePrintSettings(template),
     sheets,
   }
+
+  if (templateDetailCache.size >= TEMPLATE_CACHE_MAX) {
+    const oldestKey = templateDetailCache.keys().next().value!
+    templateDetailCache.delete(oldestKey)
+  }
+  templateDetailCache.set(template.id, { detail, timestamp: Date.now() })
+
+  return detail
 }
 
 export async function buildTemplateListItem(

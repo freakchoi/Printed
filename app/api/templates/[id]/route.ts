@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth'
 import { requireAdmin, requireSession } from '@/lib/authorization'
 import { prisma } from '@/lib/prisma'
 import { readFile, unlink } from 'fs/promises'
-import { buildTemplateDetail } from '@/lib/template-server'
+import { buildTemplateDetail, invalidateTemplateDetailCache } from '@/lib/template-server'
 import { getLegacySheetId } from '@/lib/template-model'
 
 export async function GET(
@@ -117,6 +117,7 @@ export async function PUT(
     }
   })
 
+  invalidateTemplateDetailCache(id)
   return NextResponse.json({ ok: true })
 }
 
@@ -152,6 +153,7 @@ export async function DELETE(
 
   await prisma.template.delete({ where: { id } })
   await Promise.all(svgPaths.map(svgPath => unlink(svgPath).catch(() => {})))
+  invalidateTemplateDetailCache(id)
 
   return NextResponse.json({ ok: true })
 }
