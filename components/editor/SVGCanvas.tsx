@@ -39,6 +39,7 @@ interface SVGCanvasProps {
   onCreateProject?: () => void
   onDeleteProject?: () => void
   onDuplicateProject?: () => void
+  onDuplicateSheets?: (sheetIds: string[]) => void
   onDeleteSelectedSheets?: (sheetId?: string) => void
   onOpenExport?: () => void
   onOpenSave?: () => void
@@ -158,6 +159,7 @@ export function SVGCanvas({
   onCreateProject,
   onDeleteProject,
   onDuplicateProject,
+  onDuplicateSheets,
   onDeleteSelectedSheets,
   onOpenExport,
   onOpenSave,
@@ -703,17 +705,30 @@ export function SVGCanvas({
                         </button>
                       ) : null}
                       {isProjectPreview ? (
-                        <button
-                          type="button"
-                          className={cn(sharpIconButtonClass, 'h-7 w-7 p-0 hover:text-destructive')}
-                          onClick={event => {
-                            event.stopPropagation()
-                            onDeleteSelectedSheets?.(sheet.id)
-                          }}
-                          aria-label={selectedSheetIds.includes(sheet.id) && selectedSheetIds.length > 1 ? '선택한 대지 삭제' : '대지 삭제'}
-                        >
-                          <Trash2 size={isUltraCompactHeader ? 12 : 14} />
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className={cn(sharpIconButtonClass, 'h-7 w-7 p-0')}
+                            onClick={event => {
+                              event.stopPropagation()
+                              onDuplicateSheets?.([sheet.id])
+                            }}
+                            aria-label="대지 복제"
+                          >
+                            <Copy size={isUltraCompactHeader ? 12 : 14} />
+                          </button>
+                          <button
+                            type="button"
+                            className={cn(sharpIconButtonClass, 'h-7 w-7 p-0 hover:text-destructive')}
+                            onClick={event => {
+                              event.stopPropagation()
+                              onDeleteSelectedSheets?.(sheet.id)
+                            }}
+                            aria-label={selectedSheetIds.includes(sheet.id) && selectedSheetIds.length > 1 ? '선택한 대지 삭제' : '대지 삭제'}
+                          >
+                            <Trash2 size={isUltraCompactHeader ? 12 : 14} />
+                          </button>
+                        </>
                       ) : null}
                       {isEditing ? (
                         <button

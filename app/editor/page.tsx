@@ -1477,6 +1477,14 @@ export default function EditorPage() {
         return
       }
 
+      if (isMeta && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        if (workspaceMode === 'project-preview') {
+          void handleSaveOrOpenDialog()
+        }
+        return
+      }
+
       if (isTextInputTarget) return
       if (event.key === 'Escape') {
         setSelectedFieldId(null)
@@ -1497,7 +1505,7 @@ export default function EditorPage() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [applyUndoState, copiedSheetIds, handleDuplicateSelectedSheets, selectedSheetIds, workspaceMode])
+  }, [applyUndoState, copiedSheetIds, handleDuplicateSelectedSheets, handleSaveOrOpenDialog, selectedSheetIds, workspaceMode])
 
   return (
     <div className="motion-fade-in flex h-screen flex-col bg-background">
@@ -1573,6 +1581,7 @@ export default function EditorPage() {
                 onCreateProject={handleCreateProject}
                 onDeleteProject={activeProjectId ? () => handleDeleteProject(activeProjectId) : undefined}
                 onDuplicateProject={activeProjectId ? () => handleDuplicateProject(activeProjectId) : undefined}
+                onDuplicateSheets={workspaceMode === 'project-preview' ? handleDuplicateSelectedSheets : undefined}
                 onDeleteSelectedSheets={workspaceMode === 'project-preview' ? handleDeleteSelectedSheets : undefined}
                 onOpenExport={workspaceMode === 'project-preview' ? handleOpenExportDialog : undefined}
                 onOpenSave={workspaceMode === 'project-preview' ? handleSaveOrOpenDialog : undefined}
