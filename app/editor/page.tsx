@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { signOut, useSession } from 'next-auth/react'
-import { LogOut, UserRound } from 'lucide-react'
+import { Keyboard, LogOut, UserRound } from 'lucide-react'
 import { ActorIdentityDialog } from '@/components/editor/ActorIdentityDialog'
 import { LeftSidebar } from '@/components/editor/LeftSidebar'
 import { SVGCanvas } from '@/components/editor/SVGCanvas'
@@ -177,6 +177,7 @@ export default function EditorPage() {
   const [exportError, setExportError] = useState<string | null>(null)
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
+  const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false)
   const [exportFormat, setExportFormat] = useState<'pdf' | 'png' | 'jpeg'>('pdf')
   const [exportFileName, setExportFileName] = useState('')
   const [selectionMode, setSelectionMode] = useState<ImageSelectionMode>('all')
@@ -1531,6 +1532,33 @@ export default function EditorPage() {
             <UserRound size={14} className="text-primary" />
             <span className="max-w-28 truncate">{actorName || '작업자 설정'}</span>
           </button>
+          <div className="relative">
+            <button type="button" className="rounded-md p-2 transition-colors hover:bg-accent" onClick={() => setIsShortcutHelpOpen(prev => !prev)} aria-label="단축키 도움말">
+              <Keyboard size={16} />
+            </button>
+            {isShortcutHelpOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsShortcutHelpOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border/80 bg-background p-4 shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
+                  <p className="mb-3 text-xs font-semibold text-foreground">키보드 단축키</p>
+                  <div className="space-y-2 text-xs text-muted-foreground">
+                    {[
+                      { keys: '⌘/Ctrl + S', desc: '저장' },
+                      { keys: '⌘/Ctrl + Z', desc: '실행 취소' },
+                      { keys: '⌘/Ctrl + C', desc: '대지 복사' },
+                      { keys: '⌘/Ctrl + V', desc: '대지 붙여넣기' },
+                      { keys: 'Escape', desc: '필드 선택 해제' },
+                    ].map(({ keys, desc }) => (
+                      <div key={keys} className="flex items-center justify-between gap-3">
+                        <kbd className="shrink-0 rounded-md border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[11px] text-foreground">{keys}</kbd>
+                        <span>{desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           <ThemeToggle />
           <button type="button" className="rounded-md p-2 transition-colors hover:bg-accent" onClick={async () => { await signOut({ redirect: false }); window.location.href = '/login' }} aria-label="로그아웃">
             <LogOut size={16} />
