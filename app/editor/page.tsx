@@ -1533,13 +1533,14 @@ export default function EditorPage() {
             <span className="max-w-28 truncate">{actorName || '작업자 설정'}</span>
           </button>
           <div className="relative">
-            <button type="button" className="rounded-md p-2 transition-colors hover:bg-accent" onClick={() => setIsShortcutHelpOpen(prev => !prev)} aria-label="단축키 도움말">
-              <Keyboard size={16} />
+            <button type="button" className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" onClick={() => setIsShortcutHelpOpen(prev => !prev)}>
+              <Keyboard size={14} />
+              <span>단축키</span>
             </button>
             {isShortcutHelpOpen && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setIsShortcutHelpOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-border/80 bg-background p-4 shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
+                <div className="fixed inset-0 z-[80]" onClick={() => setIsShortcutHelpOpen(false)} />
+                <div className="absolute right-0 top-full z-[81] mt-2 w-64 rounded-xl border border-border/80 bg-background p-4 shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
                   <p className="mb-3 text-xs font-semibold text-foreground">키보드 단축키</p>
                   <div className="space-y-2 text-xs text-muted-foreground">
                     {[
@@ -1560,8 +1561,9 @@ export default function EditorPage() {
             )}
           </div>
           <ThemeToggle />
-          <button type="button" className="rounded-md p-2 transition-colors hover:bg-accent" onClick={async () => { await signOut({ redirect: false }); window.location.href = '/login' }} aria-label="로그아웃">
-            <LogOut size={16} />
+          <button type="button" className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" onClick={async () => { await signOut({ redirect: false }); window.location.href = '/login' }}>
+            <LogOut size={14} />
+            <span>로그아웃</span>
           </button>
         </div>
       </header>
