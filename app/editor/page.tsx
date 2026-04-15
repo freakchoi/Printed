@@ -1540,7 +1540,7 @@ export default function EditorPage() {
             {isShortcutHelpOpen && (
               <>
                 <div className="fixed inset-0 z-[80]" onClick={() => setIsShortcutHelpOpen(false)} />
-                <div className="absolute right-0 top-full z-[81] mt-2 w-64 rounded-xl border border-border/80 bg-background p-4 shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
+                <div className="fixed right-4 top-14 z-[81] w-64 rounded-xl border border-border/80 bg-background p-4 shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
                   <p className="mb-3 text-xs font-semibold text-foreground">키보드 단축키</p>
                   <div className="space-y-2 text-xs text-muted-foreground">
                     {[
