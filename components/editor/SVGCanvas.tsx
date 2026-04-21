@@ -651,7 +651,7 @@ export function SVGCanvas({
                         ? 'border-primary/20 bg-card text-foreground'
                         : 'border-black/5 bg-card text-foreground',
                   )}
-                    style={isUltraCompactHeader ? { maxWidth: `${Math.max(120, Math.min(stageWidth - 24, 240))}px` } : undefined}
+                    style={{ maxWidth: `${Math.max(120, isUltraCompactHeader ? Math.min(stageWidth - 24, 240) : stageWidth - 24)}px` }}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                     <div className="min-w-0">
